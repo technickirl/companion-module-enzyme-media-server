@@ -3,7 +3,7 @@
 // (a thing by its number or its name, a value's fade time, a custom message's
 // arguments typed as text).
 
-const osc = require('osc')
+import osc from 'osc'
 
 const int = (value) => ({ type: 'i', value: Math.trunc(Number(value)) })
 const float = (value) => ({ type: 'f', value: Number(value) })
@@ -130,7 +130,7 @@ function describe(message) {
 	return [message.address, ...args].join(' ')
 }
 
-module.exports = {
+export {
 	int,
 	float,
 	str,

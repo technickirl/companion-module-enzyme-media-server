@@ -4,20 +4,20 @@
 // gathered for a few milliseconds before Companion hears of it, so the Full
 // level does not flood it.
 
-const { InstanceBase, InstanceStatus, runEntrypoint } = require('@companion-module/base')
-const UpgradeScripts = require('./upgrades')
-const { getConfigFields, hostsFromConfig } = require('./config')
-const { EngineLink } = require('./link')
-const { EngineState } = require('./status')
-const { getActionDefinitions } = require('./actions')
-const { getFeedbackDefinitions, feedbacksFor } = require('./feedbacks')
-const { variableDefinitions, initialValues } = require('./variables')
-const { getPresets } = require('./presets')
+import { InstanceBase, InstanceStatus } from '@companion-module/base'
+import { UpgradeScripts } from './upgrades.js'
+import { getConfigFields, hostsFromConfig } from './config.js'
+import { EngineLink } from './link.js'
+import { EngineState } from './status.js'
+import { getActionDefinitions } from './actions.js'
+import { getFeedbackDefinitions, feedbacksFor } from './feedbacks.js'
+import { variableDefinitions, initialValues } from './variables.js'
+import { getPresets } from './presets.js'
 
 /** How long changes are gathered before they go to Companion. */
 const FLUSH_MS = 40
 
-class EnzymeInstance extends InstanceBase {
+export default class EnzymeInstance extends InstanceBase {
 	constructor(internal) {
 		super(internal)
 		this.link = null
@@ -160,4 +160,6 @@ class EnzymeInstance extends InstanceBase {
 	}
 }
 
-runEntrypoint(EnzymeInstance, UpgradeScripts)
+// Companion loads the class as the default export and the upgrade scripts
+// as `UpgradeScripts`.
+export { UpgradeScripts }

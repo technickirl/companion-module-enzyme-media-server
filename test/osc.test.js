@@ -1,6 +1,7 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const osc = require('../src/osc')
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import * as osc from '../src/osc.js'
+import lib from 'osc'
 
 test('encodes and decodes a message with every argument type', () => {
 	const message = { address: '/layer/3/opacity', args: [osc.float(0.5), osc.str('snap'), osc.int(2)] }
@@ -16,7 +17,6 @@ test('encodes and decodes a message with every argument type', () => {
 })
 
 test('flattens a bundle and ignores rubbish', () => {
-	const lib = require('osc')
 	const bundle = Buffer.from(
 		lib.writeBundle({
 			timeTag: lib.timeTag(0),

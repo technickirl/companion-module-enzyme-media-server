@@ -1,15 +1,15 @@
 // The status parser, on messages built by hand, on packets captured from the
 // fake engine and kept under fixtures, and on a live capture.
 
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const path = require('node:path')
-const dgram = require('node:dgram')
-const { parseStatus, EngineState } = require('../src/status')
-const { encode, decode, int, float, str } = require('../src/osc')
-const { FakeEngine } = require('./fake-engine')
-const { waitFor } = require('./helpers')
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
+import dgram from 'node:dgram'
+import { parseStatus, EngineState } from '../src/status.js'
+import { encode, decode, int, float, str } from '../src/osc.js'
+import { FakeEngine } from './fake-engine.js'
+import { waitFor } from './helpers.js'
 
 const msg = (address, ...args) => ({ address, args })
 
@@ -146,7 +146,7 @@ function feed(state, packetsHex) {
 }
 
 test('the fixture captured from the fake engine parses to a full picture', () => {
-	const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'status-full.json'), 'utf8'))
+	const fixture = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, 'fixtures', 'status-full.json'), 'utf8'))
 	const state = new EngineState()
 	const count = feed(state, fixture.packets)
 	assert.ok(count > 40, `parsed ${count} status messages`)

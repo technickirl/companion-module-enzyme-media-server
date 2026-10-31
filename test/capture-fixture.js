@@ -2,11 +2,11 @@
 // commands, into test/fixtures/status-full.json for the parser test.
 // Run again to refresh it:  node test/capture-fixture.js
 
-const fs = require('node:fs')
-const path = require('node:path')
-const dgram = require('node:dgram')
-const { encode, int, str } = require('../src/osc')
-const { FakeEngine } = require('./fake-engine')
+import fs from 'node:fs'
+import path from 'node:path'
+import dgram from 'node:dgram'
+import { encode, int, str } from '../src/osc.js'
+import { FakeEngine } from './fake-engine.js'
 
 async function main() {
 	const engine = await new FakeEngine({ port: 0, timelines: 2, layers: 2 }).start()
@@ -29,7 +29,7 @@ async function main() {
 	await pause(1200)
 	socket.close()
 	engine.stop()
-	const file = path.join(__dirname, 'fixtures', 'status-full.json')
+	const file = path.join(import.meta.dirname, 'fixtures', 'status-full.json')
 	fs.writeFileSync(
 		file,
 		JSON.stringify(

@@ -10,10 +10,10 @@
 // This file knows nothing of Companion, so the tests drive it against the
 // fake engine with short intervals.
 
-const dgram = require('node:dgram')
-const dns = require('node:dns')
-const { EventEmitter } = require('node:events')
-const { encode, decode, str, describe } = require('./osc')
+import dgram from 'node:dgram'
+import dns from 'node:dns'
+import { EventEmitter } from 'node:events'
+import { encode, decode, str, describe } from './osc.js'
 
 const PING_INTERVAL = 20_000
 /** Status that stays quiet this long on a host that answers pings is asked for again. */
@@ -220,4 +220,4 @@ class EngineLink extends EventEmitter {
 	}
 }
 
-module.exports = { EngineLink, PING_INTERVAL, STATUS_TIMEOUT, MISSED_PINGS }
+export { EngineLink, PING_INTERVAL, STATUS_TIMEOUT, MISSED_PINGS }

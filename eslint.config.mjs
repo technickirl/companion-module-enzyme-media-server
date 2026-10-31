@@ -5,9 +5,10 @@ const baseConfig = await generateEslintConfig({})
 export default [
 	...baseConfig,
 	{
+		// The whole package is ES modules.
 		files: ['**/*.js'],
 		languageOptions: {
-			sourceType: 'commonjs',
+			sourceType: 'module',
 		},
 	},
 ]

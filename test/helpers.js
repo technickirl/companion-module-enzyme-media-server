@@ -1,7 +1,7 @@
 // Shared bits for the tests: waiting on a condition, and a decoder that
 // returns what the osc library would hand the link.
 
-const { decode } = require('../src/osc')
+import { decode, encode } from '../src/osc.js'
 
 /** Resolves once `condition()` is true, polling; rejects after `timeout` ms. */
 function waitFor(condition, timeout = 3000, what = 'condition') {
@@ -27,8 +27,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /** Encodes then decodes, as the wire would. */
 function roundTrip(message) {
-	const { encode } = require('../src/osc')
 	return decode(encode(message))[0]
 }
 
-module.exports = { waitFor, sleep, roundTrip }
+export { waitFor, sleep, roundTrip }

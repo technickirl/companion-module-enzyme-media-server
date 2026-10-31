@@ -1,8 +1,8 @@
 // Ready-made buttons, in sections: Transport, Cues, Show, Recalls, Set list
 // and Timelines. `label` is the connection's label, for the variables.
 
-const { combineRgb } = require('@companion-module/base')
-const C = require('./choices')
+import { combineRgb } from '@companion-module/base'
+import * as C from './choices.js'
 
 const WHITE = combineRgb(255, 255, 255)
 const BLACK = combineRgb(0, 0, 0)
@@ -163,4 +163,4 @@ function getPresets(label) {
 	return { structure, presets }
 }
 
-module.exports = { getPresets }
+export { getPresets }

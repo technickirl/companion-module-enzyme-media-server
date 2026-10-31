@@ -3,8 +3,8 @@
 // the encoding without Companion. `getActionDefinitions` wraps them for the
 // instance.
 
-const C = require('./choices')
-const { int, float, str, number, namePart, timelinePrefix, timeArgs, cueArg, parseArgs } = require('./osc')
+import * as C from './choices.js'
+import { int, float, str, number, namePart, timelinePrefix, timeArgs, cueArg, parseArgs } from './osc.js'
 
 const field = {
 	timeline: {
@@ -413,4 +413,4 @@ function getActionDefinitions(self) {
 	return definitions
 }
 
-module.exports = { ACTIONS, buildAction, nullContext, getActionDefinitions, number }
+export { ACTIONS, buildAction, nullContext, getActionDefinitions, number }

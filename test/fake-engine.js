@@ -8,9 +8,10 @@
 // Run it:  node test/fake-engine.js [--port 9000] [--timelines 1] [--layers 4] [--quiet]
 // Then point the connection at 127.0.0.1 and that port.
 
-const dgram = require('node:dgram')
-const { EventEmitter } = require('node:events')
-const { encode, decode, int, float, str, argNumber, argText, describe } = require('../src/osc')
+import dgram from 'node:dgram'
+import { pathToFileURL } from 'node:url'
+import { EventEmitter } from 'node:events'
+import { encode, decode, int, float, str, argNumber, argText, describe } from '../src/osc.js'
 
 const SUBSCRIBE_TIMEOUT = 5 * 60 * 1000
 const FPS = 25
@@ -373,7 +374,7 @@ function parseCli(argv) {
 	return options
 }
 
-if (require.main === module) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
 	const options = parseCli(process.argv.slice(2))
 	if (options.help) {
 		console.log('node test/fake-engine.js [--port 9000] [--timelines 1] [--layers 4] [--following] [--quiet]')
@@ -397,4 +398,4 @@ if (require.main === module) {
 	}
 }
 
-module.exports = { FakeEngine, timecode }
+export { FakeEngine, timecode }

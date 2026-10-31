@@ -3,6 +3,7 @@
 	"version": "0.1.0",
 	"description": "Bitfocus Companion module for the Enzyme media server",
 	"main": "src/main.js",
+	"type": "module",
 	"scripts": {
 		"format": "prettier -w .",
 		"lint:raw": "eslint",

@@ -1,7 +1,7 @@
 // The connection's settings: the engine (found by Bonjour or typed), the OSC
 // port, an optional backup engine and the status level.
 
-const C = require('./choices')
+import * as C from './choices.js'
 
 const DEFAULT_PORT = 9000
 
@@ -87,4 +87,4 @@ function hostsFromConfig(config) {
 	return hosts
 }
 
-module.exports = { getConfigFields, hostsFromConfig, DEFAULT_PORT }
+export { getConfigFields, hostsFromConfig, DEFAULT_PORT }

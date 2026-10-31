@@ -3,11 +3,11 @@
 // asks for status again when that goes quiet; and with a backup it takes
 // status from whichever engine answers.
 
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const { EngineLink } = require('../src/link')
-const { FakeEngine } = require('./fake-engine')
-const { waitFor, sleep } = require('./helpers')
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { EngineLink } from '../src/link.js'
+import { FakeEngine } from './fake-engine.js'
+import { waitFor, sleep } from './helpers.js'
 
 const PING = 60
 

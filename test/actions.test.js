@@ -1,10 +1,10 @@
 // Every action, built with its options and checked after a trip through the
 // OSC encoder, against the addresses and arguments Enzyme takes.
 
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const { ACTIONS, buildAction, nullContext } = require('../src/actions')
-const { roundTrip } = require('./helpers')
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { ACTIONS, buildAction, nullContext } from '../src/actions.js'
+import { roundTrip } from './helpers.js'
 
 /** Builds, encodes and decodes, and gives [address, [type:value, ...]] per message. */
 function wire(id, options, ctx) {

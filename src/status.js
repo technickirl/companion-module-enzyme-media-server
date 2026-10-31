@@ -3,7 +3,7 @@
 // takes any argument types (Enzyme sends ints, floats and text; a number may
 // come as either) and ignores addresses it does not know.
 
-const { argNumber, argText } = require('./osc')
+import { argNumber, argText } from './osc.js'
 
 /** Floats come as 32-bit; three decimals is all a button can show. */
 const round = (n) => Math.round(n * 1000) / 1000
@@ -185,4 +185,4 @@ class EngineState {
 	}
 }
 
-module.exports = { parseStatus, EngineState, round }
+export { parseStatus, EngineState, round }

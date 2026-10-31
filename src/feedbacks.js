@@ -3,8 +3,8 @@
 // `keys` names the state that moves each one, so a batch of status only
 // re-checks the feedbacks it touched.
 
-const { combineRgb } = require('@companion-module/base')
-const C = require('./choices')
+import { combineRgb } from '@companion-module/base'
+import * as C from './choices.js'
 
 const GREEN = { bgcolor: combineRgb(0, 140, 0), color: combineRgb(255, 255, 255) }
 const RED = { bgcolor: combineRgb(180, 0, 0), color: combineRgb(255, 255, 255) }
@@ -210,4 +210,4 @@ function getFeedbackDefinitions(self) {
 	return definitions
 }
 
-module.exports = { FEEDBACKS, feedbacksFor, checkFeedback, getFeedbackDefinitions, sameCue }
+export { FEEDBACKS, feedbacksFor, checkFeedback, getFeedbackDefinitions, sameCue }

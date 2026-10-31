@@ -1,11 +1,12 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const { FEEDBACKS, checkFeedback, feedbacksFor, sameCue } = require('../src/feedbacks')
-const { EngineState } = require('../src/status')
-const { str, int } = require('../src/osc')
-const { variableDefinitions, initialValues } = require('../src/variables')
-const { getPresets } = require('../src/presets')
-const { ACTIONS } = require('../src/actions')
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { FEEDBACKS, checkFeedback, feedbacksFor, sameCue } from '../src/feedbacks.js'
+import { EngineState } from '../src/status.js'
+import { str, int } from '../src/osc.js'
+import { variableDefinitions, initialValues } from '../src/variables.js'
+import { getPresets } from '../src/presets.js'
+import { ACTIONS } from '../src/actions.js'
+import { hostsFromConfig } from '../src/config.js'
 
 const msg = (address, ...args) => ({ address, args })
 
@@ -123,7 +124,6 @@ test('presets refer to actions and feedbacks that exist, with their options', ()
 })
 
 test('the config gives the hosts', () => {
-	const { hostsFromConfig } = require('../src/config')
 	assert.deepEqual(hostsFromConfig({ host: '10.0.0.5', port: 9000 }), [
 		{ host: '10.0.0.5', port: 9000, name: 'primary' },
 	])

@@ -200,7 +200,7 @@ const CONNECTED_WHICH = [
 	{ id: 'backup', label: 'The backup engine' },
 ]
 
-module.exports = {
+export {
 	TRANSPORT_COMMANDS,
 	TRANSPORT_STATES,
 	CHASE_MODES,

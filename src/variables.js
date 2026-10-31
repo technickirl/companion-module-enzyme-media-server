@@ -70,4 +70,4 @@ function initialValues() {
 	return values
 }
 
-module.exports = { BASE_VARIABLES, TIMELINE_VARIABLES, LAYER_VARIABLES, variableDefinitions, initialValues }
+export { BASE_VARIABLES, TIMELINE_VARIABLES, LAYER_VARIABLES, variableDefinitions, initialValues }
