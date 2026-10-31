@@ -1,0 +1,400 @@
+// A fake Enzyme engine for testing the module without a real one. It binds
+// a UDP port, answers /ping with /pong, takes /subscribe and /unsubscribe,
+// sends a status set to each subscriber once a second and the moving part
+// ten times a second, and echoes every command it hears to the console. It
+// keeps just enough show state (transport, cue, blackout, mode, master,
+// override, the last recall, the set list row) for the feedbacks to light.
+//
+// Run it:  node test/fake-engine.js [--port 9000] [--timelines 1] [--layers 4] [--quiet]
+// Then point the connection at 127.0.0.1 and that port.
+
+const dgram = require('node:dgram')
+const { EventEmitter } = require('node:events')
+const { encode, decode, int, float, str, argNumber, argText, describe } = require('../src/osc')
+
+const SUBSCRIBE_TIMEOUT = 5 * 60 * 1000
+const FPS = 25
+
+/** Seconds as 25 fps timecode. */
+function timecode(seconds) {
+	const total = Math.max(0, Math.floor(seconds * FPS))
+	const f = total % FPS
+	const s = Math.floor(total / FPS) % 60
+	const m = Math.floor(total / FPS / 60) % 60
+	const h = Math.floor(total / FPS / 3600)
+	const two = (n) => String(n).padStart(2, '0')
+	return `${two(h)}:${two(m)}:${two(s)}:${two(f)}`
+}
+
+class FakeEngine extends EventEmitter {
+	/**
+	 * @param {object} [options]
+	 * @param {number} [options.port] 0 for any free port
+	 * @param {number} [options.timelines] how many timelines the show has
+	 * @param {number} [options.layers] how many layers
+	 * @param {boolean} [options.echo] print what arrives
+	 * @param {boolean} [options.following] a backup following its leader: answers nothing
+	 * @param {number} [options.rate] moving messages a second
+	 */
+	constructor({ port = 9000, timelines = 1, layers = 4, echo = false, following = false, rate = 10 } = {}) {
+		super()
+		this.wantedPort = port
+		this.timelines = timelines
+		this.layers = layers
+		this.echo = echo
+		this.following = following
+		this.rate = rate
+		this.socket = null
+		this.subscribers = new Map()
+		this.started = Date.now()
+		this.received = []
+		this.state = {
+			transport: 'stop',
+			cue: '',
+			next_cue: '1',
+			section: [1, 'Opening'],
+			position: 0,
+			blackout: 0,
+			mode: 'show',
+			master: 1,
+			override: 'off',
+			recall: null,
+			setlist: [0, ''],
+			audio_mute: 0,
+			layers: Array.from({ length: layers }, (_, i) => ({
+				owner: 'timeline',
+				source: i === 0 ? 'media 1/1' : '',
+				showing: i === 0 ? 1 : 0,
+				play_mode: 'play',
+				opacity: 1,
+				colour: [1, 1, 1],
+				time: 0,
+			})),
+		}
+		this.lastMoving = 0
+	}
+
+	get port() {
+		return this.socket ? this.socket.address().port : 0
+	}
+
+	async start() {
+		const socket = dgram.createSocket('udp4')
+		this.socket = socket
+		socket.on('message', (buffer, rinfo) => this.onMessage(buffer, rinfo))
+		await new Promise((resolve, reject) => {
+			socket.once('error', reject)
+			socket.bind(this.wantedPort, '0.0.0.0', () => {
+				socket.off('error', reject)
+				resolve()
+			})
+		})
+		this.steadyTimer = setInterval(() => this.sendSteady(), 1000)
+		this.movingTimer = setInterval(() => this.sendMoving(), 1000 / this.rate)
+		this.lastTick = Date.now()
+		return this
+	}
+
+	stop() {
+		clearInterval(this.steadyTimer)
+		clearInterval(this.movingTimer)
+		if (this.socket) {
+			this.socket.close()
+			this.socket = null
+		}
+	}
+
+	log(text) {
+		if (this.echo) console.log(`${new Date().toISOString().slice(11, 23)} ${text}`)
+	}
+
+	send(to, message) {
+		if (!this.socket) return
+		const buffer = encode(message)
+		this.socket.send(buffer, 0, buffer.length, to.port, to.address)
+	}
+
+	sendTo(to, messages) {
+		for (const m of messages) this.send(to, m)
+	}
+
+	onMessage(buffer, rinfo) {
+		const key = `${rinfo.address}:${rinfo.port}`
+		for (const message of decode(buffer)) {
+			this.received.push(message.address)
+			if (this.following) {
+				this.log(`ignored (following) ${describe(message)} from ${key}`)
+				this.emit('ignored', message, rinfo)
+				continue
+			}
+			const sub = this.subscribers.get(key)
+			if (sub) sub.seen = Date.now()
+			if (message.address === '/ping') {
+				this.send(rinfo, { address: '/pong', args: [] })
+				this.emit('ping', rinfo)
+				continue
+			}
+			if (message.address === '/subscribe') {
+				const level = argText(message.args[0]).toLowerCase() === 'light' ? 'light' : 'full'
+				this.subscribers.set(key, { address: rinfo.address, port: rinfo.port, level, seen: Date.now() })
+				this.log(`subscribed ${key} at ${level}`)
+				this.emit('subscribe', level, rinfo)
+				this.sendTo(rinfo, this.steadySet(level))
+				continue
+			}
+			if (message.address === '/unsubscribe') {
+				this.subscribers.delete(key)
+				this.log(`unsubscribed ${key}`)
+				this.emit('unsubscribe', rinfo)
+				continue
+			}
+			this.log(`${describe(message)} from ${key}`)
+			this.apply(message)
+			this.emit('command', message, rinfo)
+		}
+	}
+
+	/** A little of what a command does, so the status moves. */
+	apply(message) {
+		const parts = message.address.split('/').filter((p) => p !== '')
+		const s = this.state
+		const a = message.args
+		let changed = true
+		// The master's transport addresses bare, a timeline's after /timeline/N.
+		const bare = parts[0] === 'timeline' ? parts.slice(2) : parts
+		if (bare[0] === 'transport') {
+			switch (bare[1]) {
+				case 'go':
+				case 'play':
+					s.transport = 'play'
+					if (s.cue === '') {
+						s.cue = '1'
+						s.next_cue = '2'
+					}
+					break
+				case 'pause':
+				case 'hold':
+					s.transport = 'hold'
+					break
+				case 'stop':
+					s.transport = 'stop'
+					break
+				case 'reset':
+					s.transport = 'hold'
+					s.position = 0
+					s.cue = ''
+					s.next_cue = '1'
+					break
+				case 'skip_forward':
+				case 'next':
+				case 'go_next':
+					s.cue = s.next_cue
+					s.next_cue = String(Number(s.next_cue) + 1)
+					s.transport = bare[1] === 'go_next' ? 'play' : 'hold'
+					break
+				case 'skip_back':
+				case 'previous':
+				case 'go_previous':
+					s.cue = String(Math.max(1, Number(s.cue || 1) - 1))
+					s.next_cue = String(Number(s.cue) + 1)
+					s.transport = bare[1] === 'go_previous' ? 'play' : 'hold'
+					break
+				case 'tc_lock':
+					s.transport = 'chase'
+					break
+				case 'tc_release':
+					s.transport = 'play'
+					break
+				default:
+					changed = false
+			}
+		} else if (bare[0] === 'cue' && bare[1] === 'go') {
+			const n = argNumber(a[0])
+			s.cue = Number.isFinite(n) ? String(n) : argText(a[0])
+			s.next_cue = Number.isFinite(n) ? String(Math.floor(n) + 1) : ''
+			s.transport = 'play'
+		} else if (parts[0] === 'show' && parts[1] === 'blackout') {
+			const n = argNumber(a[0])
+			s.blackout = !Number.isFinite(n) || n > 0.5 ? 1 : 0
+		} else if (parts[0] === 'show' && parts[1] === 'master') {
+			s.master = argNumber(a[0])
+		} else if (parts[0] === 'show' && parts[1] === 'mode') {
+			s.mode = argText(a[0]).toLowerCase()
+		} else if (parts[0] === 'show' && parts[1] === 'override') {
+			s.override = argText(a[0]).toLowerCase()
+		} else if (parts[0] === 'recall') {
+			const bank = parts.length === 3 ? Number(parts[1]) : argNumber(a[0])
+			const tile = parts.length === 3 ? Number(parts[2]) : argNumber(a[1])
+			if (parts.length === 3 && a.length > 0 && argNumber(a[0]) < 0.5) changed = false
+			else s.recall = [bank, tile, `Recall ${bank}/${tile}`]
+		} else if (parts[0] === 'setlist') {
+			if (parts[1] === 'row' && parts[3] === 'go') s.setlist = [Number(parts[2]), 'Main']
+			else if (parts[1] === 'next') s.setlist = [s.setlist[0] + 1, 'Main']
+			else if (parts[1] === 'previous') s.setlist = [Math.max(1, s.setlist[0] - 1), 'Main']
+			else changed = false
+		} else if (parts[0] === 'layer' && /^\d+$/.test(parts[1]) && s.layers[Number(parts[1]) - 1]) {
+			const layer = s.layers[Number(parts[1]) - 1]
+			if (parts[2] === 'owner') layer.owner = argText(a[0])
+			else if (parts[2] === 'play_mode' || parts[2] === 'play') {
+				const mode = argText(a[0])
+				layer.play_mode = mode === 'hold' ? 'hold_last' : mode
+			} else if (parts[2] === 'opacity') layer.opacity = argNumber(a[0])
+			else if (parts[2] === 'media') {
+				layer.source = `media ${argNumber(a[0])}/${argNumber(a[1])}`
+				layer.showing = 1
+			} else if (parts[2] === 'generator') {
+				layer.source = `generator ${argNumber(a[0])}/${argNumber(a[1])}`
+				layer.showing = 1
+			} else if ((parts[2] === 'colour' || parts[2] === 'color') && parts[3] === 'rgb' && parts.length === 4) {
+				layer.colour = [0, 1, 2].map((i) => argNumber(a[i]))
+			} else changed = false
+		} else {
+			changed = false
+		}
+		if (changed) {
+			for (const sub of this.subscribers.values()) this.sendTo(sub, this.steadySet(sub.level))
+		}
+	}
+
+	heartbeat() {
+		return Math.floor((Date.now() - this.started) / 1000)
+	}
+
+	/** Everything that goes once a second and on change. */
+	steadySet(level) {
+		const s = this.state
+		const out = [
+			{ address: '/status/heartbeat', args: [int(this.heartbeat())] },
+			{ address: '/status/transport', args: [str(s.transport)] },
+			{ address: '/status/cue', args: [str(s.cue)] },
+			{ address: '/status/next_cue', args: [str(s.next_cue)] },
+			{ address: '/status/section', args: [int(s.section[0]), str(s.section[1])] },
+		]
+		if (this.timelines > 1) {
+			for (let n = 1; n <= this.timelines; n++) {
+				const at = (what) => `/status/timeline/${n}/${what}`
+				out.push(
+					{ address: at('transport'), args: [str(n === 1 ? s.transport : 'stop')] },
+					{ address: at('cue'), args: [str(n === 1 ? s.cue : '')] },
+					{ address: at('next_cue'), args: [str(n === 1 ? s.next_cue : '1')] },
+					{ address: at('name'), args: [str(n === 1 ? 'Main' : `Timeline ${n}`)] },
+					{ address: at('master'), args: [int(n === 1 ? 1 : 0)] },
+				)
+			}
+		}
+		out.push({ address: '/status/setlist/current', args: [int(s.setlist[0]), str(s.setlist[1])] })
+		if (s.recall) {
+			out.push({ address: '/status/recall', args: [int(s.recall[0]), int(s.recall[1]), str(s.recall[2])] })
+		}
+		if (level !== 'full') return out
+		out.push(
+			{ address: '/status/mode', args: [str(s.mode)] },
+			{ address: '/status/blackout', args: [int(s.blackout)] },
+			{ address: '/status/master', args: [float(s.master)] },
+			{ address: '/status/override', args: [str(s.override)] },
+		)
+		s.layers.forEach((layer, i) => {
+			const n = i + 1
+			const at = (what) => `/status/layer/${n}/${what}`
+			const [r, g, b] = layer.colour
+			out.push(
+				{ address: at('owner'), args: [str(layer.owner)] },
+				{ address: at('source'), args: [str(layer.source)] },
+				{ address: at('showing'), args: [int(layer.showing)] },
+				{ address: at('play_mode'), args: [str(layer.play_mode)] },
+				{ address: at('opacity'), args: [float(layer.opacity)] },
+				{ address: at('colour/rgb'), args: [float(r), float(g), float(b)] },
+				{ address: at('colour/hsi'), args: [float(0), float(0), float((r + g + b) / 3)] },
+				{ address: at('colour/xy'), args: [float(0.3127), float(0.329), float((r + g + b) / 3)] },
+			)
+		})
+		return out
+	}
+
+	/** The position in its three forms, and at Full each layer's time. */
+	movingSet(level) {
+		const s = this.state
+		const out = [
+			{ address: '/status/timecode', args: [str(timecode(s.position))] },
+			{ address: '/status/position', args: [float(s.position)] },
+			{ address: '/status/frame', args: [int(Math.floor(s.position * FPS))] },
+		]
+		if (this.timelines > 1) {
+			for (let n = 1; n <= this.timelines; n++) {
+				out.push({ address: `/status/timeline/${n}/timecode`, args: [str(timecode(n === 1 ? s.position : 0))] })
+			}
+		}
+		if (level === 'full') {
+			s.layers.forEach((layer, i) => {
+				if (layer.showing) out.push({ address: `/status/layer/${i + 1}/time`, args: [float(layer.time)] })
+			})
+		}
+		return out
+	}
+
+	dropStale() {
+		const now = Date.now()
+		for (const [key, sub] of this.subscribers) {
+			if (now - sub.seen > SUBSCRIBE_TIMEOUT) {
+				this.subscribers.delete(key)
+				this.log(`dropped ${key}: nothing heard for five minutes`)
+			}
+		}
+	}
+
+	sendSteady() {
+		this.dropStale()
+		for (const sub of this.subscribers.values()) this.sendTo(sub, this.steadySet(sub.level))
+	}
+
+	sendMoving() {
+		const now = Date.now()
+		const dt = (now - this.lastTick) / 1000
+		this.lastTick = now
+		if (this.state.transport === 'play' || this.state.transport === 'chase') {
+			this.state.position += dt
+			for (const layer of this.state.layers) if (layer.showing) layer.time += dt
+		}
+		for (const sub of this.subscribers.values()) this.sendTo(sub, this.movingSet(sub.level))
+	}
+}
+
+function parseCli(argv) {
+	const options = { port: 9000, timelines: 1, layers: 4, echo: true }
+	for (let i = 0; i < argv.length; i++) {
+		const arg = argv[i]
+		if (arg === '--port') options.port = Number(argv[++i])
+		else if (arg === '--timelines') options.timelines = Number(argv[++i])
+		else if (arg === '--layers') options.layers = Number(argv[++i])
+		else if (arg === '--quiet') options.echo = false
+		else if (arg === '--following') options.following = true
+		else if (arg === '--help' || arg === '-h') options.help = true
+	}
+	return options
+}
+
+if (require.main === module) {
+	const options = parseCli(process.argv.slice(2))
+	if (options.help) {
+		console.log('node test/fake-engine.js [--port 9000] [--timelines 1] [--layers 4] [--following] [--quiet]')
+	} else {
+		const engine = new FakeEngine(options)
+		engine
+			.start()
+			.then(() => {
+				console.log(
+					`fake Enzyme listening on UDP ${engine.port}: ${engine.timelines} timeline(s), ${engine.layers} layer(s)${engine.following ? ', following (answers nothing)' : ''}`,
+				)
+				console.log('every command heard is printed here; Ctrl-C stops it')
+			})
+			.catch((err) => {
+				console.error(`cannot start: ${err.message}`)
+				process.exitCode = 1
+			})
+		process.on('SIGINT', () => {
+			engine.stop()
+		})
+	}
+}
+
+module.exports = { FakeEngine, timecode }
