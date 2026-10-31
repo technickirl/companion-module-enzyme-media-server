@@ -5,13 +5,17 @@
 // keeps just enough show state (transport, cue, blackout, mode, master,
 // override, the last recall, the set list row) for the feedbacks to light.
 //
-// Run it:  node test/fake-engine.js [--port 9000] [--timelines 1] [--layers 4] [--quiet]
-// Then point the connection at 127.0.0.1 and that port.
+// It also serves the control socket (test/fake-socket.js) for names and
+// pictures, with the fixture show, unless told not to.
+//
+// Run it:  node test/fake-engine.js [--port 9000] [--socket-port 9200] [--key secret] [--timelines 1] [--layers 4] [--quiet]
+// Then point the connection at 127.0.0.1 and those ports.
 
 import dgram from 'node:dgram'
 import { pathToFileURL } from 'node:url'
 import { EventEmitter } from 'node:events'
 import { encode, decode, int, float, str, argNumber, argText, describe } from '../src/osc.js'
+import { FakeControlServer } from './fake-socket.js'
 
 const SUBSCRIBE_TIMEOUT = 5 * 60 * 1000
 const FPS = 25
@@ -36,10 +40,24 @@ class FakeEngine extends EventEmitter {
 	 * @param {boolean} [options.echo] print what arrives
 	 * @param {boolean} [options.following] a backup following its leader: answers nothing
 	 * @param {number} [options.rate] moving messages a second
+	 * @param {number|null} [options.socketPort] the control socket's port, 0 for any, null for none
+	 * @param {string} [options.key] the control key the socket asks for
 	 */
-	constructor({ port = 9000, timelines = 1, layers = 4, echo = false, following = false, rate = 10 } = {}) {
+	constructor({
+		port = 9000,
+		timelines = 1,
+		layers = 4,
+		echo = false,
+		following = false,
+		rate = 10,
+		socketPort = null,
+		key = '',
+	} = {}) {
 		super()
 		this.wantedPort = port
+		this.socketPort = socketPort
+		this.key = key
+		this.control = null
 		this.timelines = timelines
 		this.layers = layers
 		this.echo = echo
@@ -93,6 +111,16 @@ class FakeEngine extends EventEmitter {
 		this.steadyTimer = setInterval(() => this.sendSteady(), 1000)
 		this.movingTimer = setInterval(() => this.sendMoving(), 1000 / this.rate)
 		this.lastTick = Date.now()
+		if (this.socketPort !== null) {
+			this.control = new FakeControlServer({
+				port: this.socketPort,
+				key: this.key,
+				following: this.following,
+				state: this.state,
+				echo: this.echo,
+			})
+			await this.control.start()
+		}
 		return this
 	}
 
@@ -103,6 +131,15 @@ class FakeEngine extends EventEmitter {
 			this.socket.close()
 			this.socket = null
 		}
+		if (this.control) {
+			this.control.stop()
+			this.control = null
+		}
+	}
+
+	/** The control socket's port, when it is served. */
+	get controlPort() {
+		return this.control ? this.control.port : 0
 	}
 
 	log(text) {
@@ -254,6 +291,7 @@ class FakeEngine extends EventEmitter {
 		}
 		if (changed) {
 			for (const sub of this.subscribers.values()) this.sendTo(sub, this.steadySet(sub.level))
+			if (this.control) this.control.statusChanged()
 		}
 	}
 
@@ -361,10 +399,13 @@ class FakeEngine extends EventEmitter {
 }
 
 function parseCli(argv) {
-	const options = { port: 9000, timelines: 1, layers: 4, echo: true }
+	const options = { port: 9000, socketPort: 9200, key: '', timelines: 1, layers: 4, echo: true }
 	for (let i = 0; i < argv.length; i++) {
 		const arg = argv[i]
 		if (arg === '--port') options.port = Number(argv[++i])
+		else if (arg === '--socket-port') options.socketPort = Number(argv[++i])
+		else if (arg === '--no-socket') options.socketPort = null
+		else if (arg === '--key') options.key = String(argv[++i] ?? '')
 		else if (arg === '--timelines') options.timelines = Number(argv[++i])
 		else if (arg === '--layers') options.layers = Number(argv[++i])
 		else if (arg === '--quiet') options.echo = false
@@ -377,7 +418,9 @@ function parseCli(argv) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
 	const options = parseCli(process.argv.slice(2))
 	if (options.help) {
-		console.log('node test/fake-engine.js [--port 9000] [--timelines 1] [--layers 4] [--following] [--quiet]')
+		console.log(
+			'node test/fake-engine.js [--port 9000] [--socket-port 9200 | --no-socket] [--key secret] [--timelines 1] [--layers 4] [--following] [--quiet]',
+		)
 	} else {
 		const engine = new FakeEngine(options)
 		engine
@@ -386,6 +429,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 				console.log(
 					`fake Enzyme listening on UDP ${engine.port}: ${engine.timelines} timeline(s), ${engine.layers} layer(s)${engine.following ? ', following (answers nothing)' : ''}`,
 				)
+				if (engine.control) {
+					console.log(
+						`control socket on TCP ${engine.controlPort}${engine.key ? ' asking for the control key' : ''}: the fixture show, two timelines with named cues, four layers, two rasters, media tiles, recalls and a set list`,
+					)
+				}
 				console.log('every command heard is printed here; Ctrl-C stops it')
 			})
 			.catch((err) => {

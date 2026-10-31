@@ -1,12 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { FEEDBACKS, checkFeedback, feedbacksFor, sameCue } from '../src/feedbacks.js'
+import { FEEDBACKS, VALUES, checkFeedback, feedbacksFor, sameCue } from '../src/feedbacks.js'
 import { EngineState } from '../src/status.js'
 import { str, int } from '../src/osc.js'
-import { variableDefinitions, initialValues } from '../src/variables.js'
+import { variableDefinitions, nameValues, initialValues } from '../src/variables.js'
 import { getPresets } from '../src/presets.js'
 import { ACTIONS } from '../src/actions.js'
 import { hostsFromConfig } from '../src/config.js'
+import { ShowModel } from '../src/show.js'
+import { fixtureShow } from './fixture-show.js'
 
 const msg = (address, ...args) => ({ address, args })
 
@@ -91,48 +93,139 @@ test('variables grow with the timelines and layers seen', () => {
 	assert.ok(base.timecode && base.override && !base.timeline_1_name)
 	const grown = variableDefinitions(new Set([2, 1]), new Set([3]))
 	assert.ok(grown.timeline_1_name && grown.timeline_2_cue && grown.layer_3_owner && grown.layer_3_colour_xy)
+	const shown = new ShowModel()
+	shown.applyShow(fixtureShow())
+	const named = variableDefinitions(new Set(), new Set(), shown)
+	assert.ok(named.timeline_2_cue_name && named.layer_4_name && named.raster_2_picture && named.recall_2_1_name)
+	const cues = new EngineState()
+	cues.apply(msg('/status/cue', str('3')))
+	cues.apply(msg('/status/next_cue', str('3.5')))
+	cues.apply(msg('/status/timeline/2/next_cue', str('2')))
+	const names = nameValues(shown, cues, { name: 'Engine', version: '1.0' })
+	assert.equal(names.cue_name, 'Title')
+	assert.equal(names.next_cue_name, 'Title hold')
+	assert.equal(names.timeline_2_next_cue_name, 'Bows')
+	assert.equal(names.timeline_1_name, 'Main')
+	assert.equal(names.layer_2_name, 'LED screens')
+	assert.equal(names.raster_1_name, 'Stage')
+	assert.equal(names.recall_1_4_name, 'Blackout look')
+	assert.equal(names.engine_version, '1.0')
+	assert.equal(names.show_name, 'Fixture show')
+	assert.equal(nameValues(null, cues, null).cue_name, '')
 	const values = initialValues()
 	assert.equal(values.position, 0)
 	assert.equal(values.cue, '')
 })
 
 test('presets refer to actions and feedbacks that exist, with their options', () => {
-	const { structure, presets } = getPresets('enzyme')
-	const ids = new Set(Object.keys(presets))
-	assert.ok(structure.length >= 6)
-	for (const section of structure) {
-		for (const ref of section.definitions) assert.ok(ids.has(ref), `${section.id} refers to ${ref}`)
-	}
-	for (const [id, preset] of Object.entries(presets)) {
-		assert.equal(preset.type, 'simple', id)
+	const checkPreset = (id, preset, allowLocals = false) => {
+		const has = (field, options) =>
+			field.id in options ||
+			(allowLocals && Object.values(options).some((v) => v && v.isExpression)) ||
+			field.id === 'pick'
 		for (const step of preset.steps) {
 			for (const action of [...step.down, ...step.up]) {
 				const def = ACTIONS[action.actionId]
 				assert.ok(def, `${id} uses action ${action.actionId}`)
 				for (const field of def.options)
-					assert.ok(field.id in action.options, `${id} sets ${action.actionId}.${field.id}`)
+					assert.ok(has(field, action.options), `${id} sets ${action.actionId}.${field.id}`)
 			}
 		}
 		for (const feedback of preset.feedbacks) {
-			const def = FEEDBACKS[feedback.feedbackId]
+			const def = FEEDBACKS[feedback.feedbackId] ?? VALUES[feedback.feedbackId]
 			assert.ok(def, `${id} uses feedback ${feedback.feedbackId}`)
 			for (const field of def.options)
-				assert.ok(field.id in feedback.options, `${id} sets ${feedback.feedbackId}.${field.id}`)
+				assert.ok(has(field, feedback.options), `${id} sets ${feedback.feedbackId}.${field.id}`)
+			if (preset.type === 'layered') assert.ok(Array.isArray(feedback.styleOverrides), `${id} overrides elements`)
+			else assert.ok(feedback.style, `${id} has a style`)
+		}
+		for (const local of preset.localVariables ?? []) {
+			if (local.variableType === 'feedback') {
+				const def = VALUES[local.feedbackId]
+				assert.ok(def, `${id} binds feedback ${local.feedbackId}`)
+			}
+		}
+		if (preset.type === 'layered') {
+			const ids = preset.elements.map((e) => e.id)
+			for (const f of preset.feedbacks)
+				for (const o of f.styleOverrides) assert.ok(ids.includes(o.elementId), `${id} overrides ${o.elementId}`)
 		}
 	}
-	assert.match(presets.cue_current.style.text, /\$\(enzyme:cue\)/)
+	const check = (label, model, state) => {
+		const { structure, presets } = getPresets(label, model, state)
+		const ids = new Set(Object.keys(presets))
+		for (const section of structure) {
+			for (const d of section.definitions) {
+				if (typeof d === 'string') assert.ok(ids.has(d), `${section.id} refers to ${d}`)
+				else if (d.type === 'simple') for (const p of d.presets) assert.ok(ids.has(p), `${d.id} refers to ${p}`)
+				else {
+					assert.equal(d.type, 'template')
+					assert.ok(ids.has(d.presetId), `${d.id} templates ${d.presetId}`)
+					const p = presets[d.presetId]
+					const variants = p.type === 'alternatives' ? p.variants : [p]
+					for (const v of variants) {
+						const names = (v.localVariables ?? []).map((l) => l.variableName)
+						assert.ok(names.includes(d.templateVariableName), `${d.id} overrides local ${d.templateVariableName}`)
+						for (const name of Object.keys(d.commonVariableValues ?? {}))
+							assert.ok(names.includes(name), `${d.id} sets local ${name}`)
+					}
+				}
+			}
+		}
+		for (const [id, preset] of Object.entries(presets)) {
+			if (preset.type === 'alternatives') {
+				assert.equal(preset.variants[0].type, 'layered')
+				assert.equal(preset.variants[1].type, 'simple')
+				for (const v of preset.variants) checkPreset(id, v, true)
+			} else {
+				assert.equal(preset.type, 'simple', id)
+				checkPreset(id, preset)
+			}
+		}
+		return { structure, presets }
+	}
+	const bare = check('enzyme', null, null)
+	assert.match(bare.presets.cue_current.style.text, /\$\(enzyme:cue\)/)
+	assert.ok(!bare.presets.show_recall, 'no show presets without a show')
+	const model = new ShowModel()
+	model.applyShow(fixtureShow())
+	const state = new EngineState()
+	state.apply(msg('/status/cue', str('7')))
+	const named = check('enzyme', model, state)
+	const cueList = named.structure.find((s) => s.id === 'show_cues').definitions[0]
+	assert.deepEqual(
+		cueList.templateValues.map((t) => t.value),
+		['7', '8', '9', '10'],
+	)
+	const recalls = named.structure.find((s) => s.id === 'show_recalls')
+	assert.deepEqual(
+		recalls.definitions.map((d) => [d.name, d.commonVariableValues.bank, d.templateValues.length]),
+		[
+			['Looks', 1, 3],
+			['Sources', 2, 1],
+		],
+	)
+	const rasters = named.structure.find((s) => s.id === 'show_rasters').definitions[0]
+	assert.deepEqual(
+		rasters.templateValues.map((t) => t.name),
+		['Stage', 'Foyer'],
+	)
+	const image = named.presets.show_raster.variants[0].elements.find((e) => e.type === 'image')
+	assert.deepEqual(image.base64Image, { isExpression: true, value: '$(local:picture)' })
+	assert.equal(image.fillMode, 'fit')
 })
 
 test('the config gives the hosts', () => {
 	assert.deepEqual(hostsFromConfig({ host: '10.0.0.5', port: 9000 }), [
-		{ host: '10.0.0.5', port: 9000, name: 'primary' },
+		{ host: '10.0.0.5', port: 9000, socketPort: 9200, name: 'primary' },
 	])
+	// The Bonjour service names the control socket's port; OSC keeps its own.
 	assert.deepEqual(hostsFromConfig({ bonjour_host: '10.0.0.5:7788', host: 'ignored', port: 9001 }), [
-		{ host: '10.0.0.5', port: 9001, name: 'primary' },
+		{ host: '10.0.0.5', port: 9001, socketPort: 7788, name: 'primary' },
 	])
-	assert.deepEqual(hostsFromConfig({ host: '10.0.0.5', backup_host: ' 10.0.0.6 ', port: '' }), [
-		{ host: '10.0.0.5', port: 9000, name: 'primary' },
-		{ host: '10.0.0.6', port: 9000, name: 'backup' },
+	assert.deepEqual(hostsFromConfig({ host: '10.0.0.5', backup_host: ' 10.0.0.6 ', port: '', socket_port: 9201 }), [
+		{ host: '10.0.0.5', port: 9000, socketPort: 9201, name: 'primary' },
+		{ host: '10.0.0.6', port: 9000, socketPort: 9201, name: 'backup' },
 	])
 	assert.deepEqual(hostsFromConfig({ host: '' }), [])
 	assert.deepEqual(hostsFromConfig(undefined), [])
