@@ -16,7 +16,7 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/technickirl/enzyme---companion.git"
+		"url": "git+https://github.com/technickirl/companion-module-enzyme-media-server.git"
 	},
 	"engines": {
 		"node": "^22.20 || ^26",

@@ -7,8 +7,8 @@
 	"description": "Controls the Enzyme media server over OSC: transport, cues, layers, looks, recalls and the set list, with status back",
 	"version": "0.0.0",
 	"license": "MIT",
-	"repository": "git+https://github.com/technickirl/enzyme---companion.git",
-	"bugs": "https://github.com/technickirl/enzyme---companion/issues",
+	"repository": "git+https://github.com/technickirl/companion-module-enzyme-media-server.git",
+	"bugs": "https://github.com/technickirl/companion-module-enzyme-media-server/issues",
 	"maintainers": [
 		{
 			"name": "Nick",
