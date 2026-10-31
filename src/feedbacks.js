@@ -1,10 +1,12 @@
-// The feedbacks: boolean, each a table entry with its options and a `check`
-// over the engine state, so the tests can drive them without Companion.
-// `keys` names the state that moves each one, so a batch of status only
-// re-checks the feedbacks it touched.
+// The feedbacks: boolean ones, each a table entry with its options and a
+// `check` over the engine state, so the tests can drive them without
+// Companion (`keys` names the state that moves each one, so a batch of
+// status only re-checks the feedbacks it touched); and value ones that
+// give a picture as a data URI, or a label, for layered buttons.
 
 import { combineRgb } from '@companion-module/base'
 import * as C from './choices.js'
+import { withChoices } from './actions.js'
 
 const GREEN = { bgcolor: combineRgb(0, 140, 0), color: combineRgb(255, 255, 255) }
 const RED = { bgcolor: combineRgb(180, 0, 0), color: combineRgb(255, 255, 255) }
@@ -13,6 +15,7 @@ const BLUE = { bgcolor: combineRgb(0, 80, 200), color: combineRgb(255, 255, 255)
 
 const timelineField = {
 	id: 'timeline',
+	choices: 'timeline',
 	type: 'textinput',
 	label: 'Timeline',
 	tooltip: 'Empty for the master, else its number or (with more than one timeline) its name',
@@ -20,6 +23,7 @@ const timelineField = {
 }
 const layerField = {
 	id: 'layer',
+	choices: 'layer',
 	type: 'number',
 	label: 'Layer (from 1 at the back)',
 	default: 1,
@@ -28,6 +32,44 @@ const layerField = {
 	step: 1,
 }
 const dropdown = (id, label, choices, def) => ({ id, type: 'dropdown', label, choices, default: def ?? choices[0].id })
+const rasterField = {
+	id: 'raster',
+	choices: 'raster',
+	type: 'textinput',
+	label: 'Raster',
+	tooltip: 'Its place in the Mappings list from 1, or its name',
+	default: '1',
+}
+const pickField = (label, tooltip) => ({
+	id: 'pick',
+	type: 'dropdown',
+	label,
+	tooltip,
+	baseChoices: [{ id: '', label: 'By the numbers below' }],
+	default: '',
+	disableAutoExpression: true,
+})
+const byNumbers = '$(options:pick) == ""'
+const bankField = (label) => ({
+	id: 'bank',
+	type: 'number',
+	label,
+	default: 1,
+	min: 0,
+	max: 65535,
+	step: 1,
+	isVisibleExpression: byNumbers,
+})
+const tileField = {
+	id: 'tile',
+	type: 'number',
+	label: 'Tile',
+	default: 1,
+	min: 1,
+	max: 65535,
+	step: 1,
+	isVisibleExpression: byNumbers,
+}
 
 /** Cues compare as numbers when both read as one, else as text. */
 function sameCue(a, b) {
@@ -168,6 +210,72 @@ const FEEDBACKS = {
 }
 
 /**
+ * The value feedbacks: pictures as data URIs for an image element, and
+ * labels for a layered button's text, each answered by the instance
+ * (`self.value(id, options)`), which also learns from the picture ones
+ * that run which pictures to ask the engine for.
+ */
+const VALUES = {
+	raster_picture: {
+		name: 'Raster picture',
+		description: 'The latest picture of a raster from the control socket, as a data URI for an image element',
+		picture: true,
+		options: [rasterField],
+	},
+	next_cue_picture: {
+		name: 'Next cue picture',
+		description: "What a raster will show at a timeline's next cue, as a data URI for an image element",
+		picture: true,
+		options: [rasterField, timelineField],
+	},
+	media_picture: {
+		name: 'Media tile picture',
+		description: 'A media tile’s picture, as a data URI for an image element',
+		picture: true,
+		options: [
+			{ ...pickField('Tile', 'A media tile by name, once the engine has sent them'), choices: 'media' },
+			bankField('Folder'),
+			tileField,
+		],
+	},
+	recall_picture: {
+		name: 'Recall picture',
+		description: 'The picture stored with a recall, as a data URI for an image element',
+		picture: true,
+		options: [
+			{ ...pickField('Recall', 'A stored recall by name, once the engine has sent them'), choices: 'recall' },
+			bankField('Bank'),
+			tileField,
+		],
+	},
+	cue_label: {
+		name: 'Cue label',
+		description: 'A cue’s number and name, for a button’s text',
+		options: [{ id: 'cue', choices: 'cue', type: 'textinput', label: 'Cue number', default: '1' }, timelineField],
+	},
+	recall_label: {
+		name: 'Recall label',
+		description: 'A recall’s name, for a button’s text',
+		options: [
+			{ ...pickField('Recall', 'A stored recall by name, once the engine has sent them'), choices: 'recall' },
+			bankField('Bank'),
+			tileField,
+		],
+	},
+	raster_label: {
+		name: 'Raster label',
+		description: 'A raster’s name, for a button’s text',
+		options: [rasterField],
+	},
+}
+
+/** A bank and tile from a "bank/tile" pick or the two numbers. */
+function bankTileOf(options) {
+	const m = /^\s*(\d+)\/(\d+)\s*$/.exec(String(options.pick ?? ''))
+	return m ? [Number(m[1]), Number(m[2])] : [Number(options.bank), Number(options.tile)]
+}
+
+/**
  * The feedbacks a set of changed variable names touches. A timeline's or a
  * layer's variable counts under its bare name (`timeline_2_cue` as `cue`,
  * `layer_3_owner` as `layer_owner`).
@@ -195,7 +303,7 @@ function checkFeedback(id, options, state, connection) {
 	return f.check(options, state, connection)
 }
 
-function getFeedbackDefinitions(self) {
+function getFeedbackDefinitions(self, choices = null) {
 	const definitions = {}
 	for (const [id, f] of Object.entries(FEEDBACKS)) {
 		definitions[id] = {
@@ -203,11 +311,21 @@ function getFeedbackDefinitions(self) {
 			name: f.name,
 			description: f.description,
 			defaultStyle: f.style,
-			options: f.options,
+			options: f.options.map((o) => withChoices(o, choices)),
 			callback: (feedback) => f.check(feedback.options, self.state, self.connection),
+		}
+	}
+	for (const [id, f] of Object.entries(VALUES)) {
+		definitions[id] = {
+			type: 'value',
+			name: f.name,
+			description: f.description,
+			options: f.options.map((o) => withChoices(o, choices)),
+			callback: (feedback) => self.value(id, feedback),
+			unsubscribe: f.picture ? (feedback) => self.valueGone(feedback.id) : undefined,
 		}
 	}
 	return definitions
 }
 
-export { FEEDBACKS, feedbacksFor, checkFeedback, getFeedbackDefinitions, sameCue }
+export { FEEDBACKS, VALUES, feedbacksFor, checkFeedback, getFeedbackDefinitions, bankTileOf, sameCue }

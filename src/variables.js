@@ -20,6 +20,15 @@ const BASE_VARIABLES = {
 	blackout: '1 while blacked out (Full)',
 	master: 'The master level, 0 to 1 (Full)',
 	override: 'The override: off, timeline, dmx or manual (Full)',
+	engine_name: "The engine's name (control socket)",
+	engine_version: "The engine's version (control socket)",
+	engine_driving: 'yes while the engine the status comes from is driving the show (control socket)',
+	show_name: "The show's name (control socket)",
+	cue_name: "The current cue's name on the master (control socket)",
+	next_cue_name: "The next cue's name on the master (control socket)",
+	next_cue_picture: 'A picture of the next cue, as a data URI for an image element (control socket)',
+	setlist_name: "The set list's name (control socket)",
+	setlist_row_name: "The current set list row's timeline name (control socket)",
 }
 
 const TIMELINE_VARIABLES = {
@@ -29,9 +38,12 @@ const TIMELINE_VARIABLES = {
 	cue: 'current cue',
 	next_cue: 'next cue',
 	master: '1 while it is the master',
+	cue_name: "the current cue's name (control socket)",
+	next_cue_name: "the next cue's name (control socket)",
 }
 
 const LAYER_VARIABLES = {
+	name: 'name (control socket)',
 	owner: 'owner (Full)',
 	source: 'source, as "media 1/2" (Full)',
 	showing: '1 while it shows a picture (Full)',
@@ -43,21 +55,72 @@ const LAYER_VARIABLES = {
 	colour_xy: 'colour as x, y and intensity (Full)',
 }
 
-/** The definitions for the timelines and layers seen so far. */
-function variableDefinitions(timelines, layers) {
+/**
+ * The definitions for the timelines and layers seen in the status so far,
+ * and those the control socket's show names: every timeline, layer and
+ * raster by number (a raster with its picture), and every stored recall
+ * by bank and tile.
+ */
+function variableDefinitions(timelines, layers, model = null) {
 	const definitions = {}
 	for (const [id, name] of Object.entries(BASE_VARIABLES)) definitions[id] = { name }
-	for (const n of [...timelines].sort((a, b) => a - b)) {
+	const allTimelines = new Set(timelines)
+	const allLayers = new Set(layers)
+	for (const t of model?.timelines ?? []) allTimelines.add(t.number)
+	for (const l of model?.layers ?? []) allLayers.add(l.number)
+	for (const n of [...allTimelines].sort((a, b) => a - b)) {
 		for (const [what, name] of Object.entries(TIMELINE_VARIABLES)) {
 			definitions[`timeline_${n}_${what}`] = { name: `Timeline ${n}: ${name}` }
 		}
 	}
-	for (const n of [...layers].sort((a, b) => a - b)) {
+	for (const n of [...allLayers].sort((a, b) => a - b)) {
 		for (const [what, name] of Object.entries(LAYER_VARIABLES)) {
 			definitions[`layer_${n}_${what}`] = { name: `Layer ${n}: ${name}` }
 		}
 	}
+	for (const r of model?.rasters ?? []) {
+		definitions[`raster_${r.number}_name`] = { name: `Raster ${r.number}: name` }
+		definitions[`raster_${r.number}_picture`] = {
+			name: `Raster ${r.number}: picture, as a data URI for an image element`,
+		}
+	}
+	for (const r of model?.recalls?.items ?? []) {
+		definitions[`recall_${r.folder}_${r.file}_name`] = { name: `Recall ${r.folder}/${r.file}: name` }
+	}
 	return definitions
+}
+
+/**
+ * The values the show gives by name, and the cue names looked up from the
+ * cue numbers the OSC status gave (`state`), so they stay right when the
+ * socket lags the stream by a frame. `engine` is the Welcome's name and
+ * version.
+ */
+function nameValues(model, state, engine) {
+	const values = {
+		engine_name: model?.engineName || engine?.name || '',
+		engine_version: engine?.version ?? '',
+		engine_driving: model?.driving ? 'yes' : 'no',
+		show_name: model?.name ?? '',
+		setlist_name: model?.setList?.name ?? '',
+		setlist_row_name: model?.currentSetListRow()?.timelineName ?? '',
+		cue_name: '',
+		next_cue_name: '',
+	}
+	if (!model) return values
+	const master = model.masterIndex
+	values.cue_name = model.cueName(master, state?.get('cue'))
+	values.next_cue_name = model.cueName(master, state?.get('next_cue'))
+	for (const t of model.timelines) {
+		const i = t.number - 1
+		values[`timeline_${t.number}_name`] = t.name
+		values[`timeline_${t.number}_cue_name`] = model.cueName(i, state?.get(`timeline_${t.number}_cue`))
+		values[`timeline_${t.number}_next_cue_name`] = model.cueName(i, state?.get(`timeline_${t.number}_next_cue`))
+	}
+	for (const l of model.layers) values[`layer_${l.number}_name`] = l.name
+	for (const r of model.rasters) values[`raster_${r.number}_name`] = r.name
+	for (const r of model.recalls.items) values[`recall_${r.folder}_${r.file}_name`] = r.name
+	return values
 }
 
 /** Every variable's starting value: empty text, or 0 for a number. */
@@ -70,4 +133,4 @@ function initialValues() {
 	return values
 }
 
-export { BASE_VARIABLES, TIMELINE_VARIABLES, LAYER_VARIABLES, variableDefinitions, initialValues }
+export { BASE_VARIABLES, TIMELINE_VARIABLES, LAYER_VARIABLES, variableDefinitions, nameValues, initialValues }

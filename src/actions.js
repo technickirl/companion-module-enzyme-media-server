@@ -1,7 +1,8 @@
 // The actions: each a table entry with its option fields and a `build` that
 // turns the options into the OSC messages to send, so the tests can check
 // the encoding without Companion. `getActionDefinitions` wraps them for the
-// instance.
+// instance, and with the names the control socket gave, turns the fields
+// that name a thing into dropdowns that still take typed text.
 
 import * as C from './choices.js'
 import { int, float, str, number, namePart, timelinePrefix, timeArgs, cueArg, parseArgs } from './osc.js'
@@ -9,6 +10,7 @@ import { int, float, str, number, namePart, timelinePrefix, timeArgs, cueArg, pa
 const field = {
 	timeline: {
 		id: 'timeline',
+		choices: 'timeline',
 		type: 'textinput',
 		label: 'Timeline',
 		tooltip: 'Empty for the master timeline, else its number (from the left of the tab row) or its name',
@@ -16,6 +18,7 @@ const field = {
 	},
 	layer: {
 		id: 'layer',
+		choices: 'layer',
 		type: 'textinput',
 		label: 'Layer',
 		tooltip: 'Its place in the stack from 1 at the back, or its name',
@@ -23,6 +26,7 @@ const field = {
 	},
 	raster: {
 		id: 'raster',
+		choices: 'raster',
 		type: 'textinput',
 		label: 'Raster',
 		tooltip: 'Its place in the Mappings list from 1, or its name',
@@ -30,6 +34,7 @@ const field = {
 	},
 	region: {
 		id: 'region',
+		choices: 'region',
 		type: 'textinput',
 		label: 'Region',
 		tooltip: 'Its place in the raster from 1 at the bottom, or its name',
@@ -56,8 +61,28 @@ const field = {
 }
 
 const layerAddress = (options, what) => `/layer/${namePart(options.layer) || '1'}/${what}`
-const regionAddress = (options, what) =>
-	`/raster/${namePart(options.raster) || '1'}/region/${namePart(options.region) || '1'}/${what}`
+/** A region picked from the dropdown comes as "raster/region" and names both. */
+const regionAddress = (options, what) => {
+	const m = /^\s*(\d+)\/(\d+)\s*$/.exec(String(options.region ?? ''))
+	const raster = m ? m[1] : namePart(options.raster) || '1'
+	const region = m ? m[2] : namePart(options.region) || '1'
+	return `/raster/${raster}/region/${region}/${what}`
+}
+/** A "bank/tile" pick, else the two numbers given. */
+const bankTile = (options) => {
+	const m = /^\s*(\d+)\/(\d+)\s*$/.exec(String(options.pick ?? ''))
+	return m ? [int(m[1]), int(m[2])] : [int(options.bank ?? options.folder), int(options.tile)]
+}
+const pickField = (id, label, tooltip) => ({
+	id,
+	type: 'dropdown',
+	label,
+	tooltip,
+	baseChoices: [{ id: '', label: 'By the numbers below' }],
+	default: '',
+	disableAutoExpression: true,
+})
+const byNumbers = (id) => `$(options:${id}) == ""`
 const groupAddress = (options, what) => `${regionAddress(options, 'group')}/${namePart(options.group) || '1'}/${what}`
 
 const onOff = (choice) => (choice === 'off' ? 0 : 1)
@@ -77,7 +102,10 @@ const ACTIONS = {
 	},
 	cue_go: {
 		name: 'Fire cue',
-		options: [field.text('cue', 'Cue', '1', 'The cue by its number (3, or 1.5) or its name'), field.timeline],
+		options: [
+			{ ...field.text('cue', 'Cue', '1', 'The cue by its number (3, or 1.5) or its name'), choices: 'cue' },
+			field.timeline,
+		],
 		build: (o) => [{ address: `${timelinePrefix(o.timeline)}/cue/go`, args: [cueArg(o.cue)] }],
 	},
 	locate: {
@@ -146,7 +174,7 @@ const ACTIONS = {
 		name: 'Layer: owner',
 		options: [
 			field.layer,
-			field.dropdown('owner', 'Owner', C.OWNERS),
+			{ ...field.dropdown('owner', 'Owner', C.OWNERS), disableAutoExpression: true },
 			{
 				...field.timeline,
 				tooltip: 'For a timeline owner: empty for the master, else the timeline by number or name',
@@ -170,19 +198,21 @@ const ACTIONS = {
 		description: 'The clip by the folder and tile numbers shown in Media',
 		options: [
 			field.layer,
-			field.number('folder', 'Folder', 1, 0, 65535, 1),
-			field.number('tile', 'Tile', 1, 1, 65535, 1),
+			{ ...pickField('pick', 'Tile', 'A media tile by name, once the engine has sent them'), choices: 'media' },
+			{ ...field.number('folder', 'Folder', 1, 0, 65535, 1), isVisibleExpression: byNumbers('pick') },
+			{ ...field.number('tile', 'Tile', 1, 1, 65535, 1), isVisibleExpression: byNumbers('pick') },
 		],
-		build: (o) => [{ address: layerAddress(o, 'media'), args: [int(o.folder), int(o.tile)] }],
+		build: (o) => [{ address: layerAddress(o, 'media'), args: bankTile(o) }],
 	},
 	layer_generator: {
 		name: 'Layer: generator',
 		options: [
 			field.layer,
-			field.number('folder', 'Folder', 1, 0, 65535, 1),
-			field.number('tile', 'Tile', 1, 1, 65535, 1),
+			{ ...pickField('pick', 'Tile', 'A generator tile by name, once the engine has sent them'), choices: 'generator' },
+			{ ...field.number('folder', 'Folder', 1, 0, 65535, 1), isVisibleExpression: byNumbers('pick') },
+			{ ...field.number('tile', 'Tile', 1, 1, 65535, 1), isVisibleExpression: byNumbers('pick') },
 		],
-		build: (o) => [{ address: layerAddress(o, 'generator'), args: [int(o.folder), int(o.tile)] }],
+		build: (o) => [{ address: layerAddress(o, 'generator'), args: bankTile(o) }],
 	},
 	layer_effect: {
 		name: 'Layer: effect',
@@ -272,7 +302,7 @@ const ACTIONS = {
 			field.layer,
 			field.dropdown('kind', 'Value', C.SWEEP_KINDS),
 			field.number('slot', 'Value number (1 to 16)', 1, 1, 16, 1),
-			field.dropdown('shape', 'Shape', C.SWEEP_SHAPES),
+			{ ...field.dropdown('shape', 'Shape', C.SWEEP_SHAPES), disableAutoExpression: true },
 			{ ...field.number('from', 'From', 0, 0, 1, 0.01), isVisibleExpression: '$(options:shape) != "off"' },
 			{ ...field.number('to', 'To', 1, 0, 1, 0.01), isVisibleExpression: '$(options:shape) != "off"' },
 			{
@@ -339,12 +369,19 @@ const ACTIONS = {
 	recall: {
 		name: 'Recall',
 		description: 'Fires a manual recall by its bank and tile',
-		options: [field.number('bank', 'Bank', 1, 0, 65535, 1), field.number('tile', 'Tile', 1, 1, 65535, 1)],
-		build: (o) => [{ address: '/recall', args: [int(o.bank), int(o.tile)] }],
+		options: [
+			{ ...pickField('pick', 'Recall', 'A stored recall by name, once the engine has sent them'), choices: 'recall' },
+			{ ...field.number('bank', 'Bank', 1, 0, 65535, 1), isVisibleExpression: byNumbers('pick') },
+			{ ...field.number('tile', 'Tile', 1, 1, 65535, 1), isVisibleExpression: byNumbers('pick') },
+		],
+		build: (o) => [{ address: '/recall', args: bankTile(o) }],
 	},
 	setlist_row_go: {
 		name: 'Set list: go on a row',
-		options: [field.number('row', 'Row', 1, 1, 65535, 1), field.dropdown('view', 'View', C.SETLIST_VIEW)],
+		options: [
+			{ ...field.number('row', 'Row', 1, 1, 65535, 1), choices: 'row' },
+			field.dropdown('view', 'View', C.SETLIST_VIEW),
+		],
 		build: (o) => [
 			{
 				address: `/setlist/row/${int(o.row).value}/go`,
@@ -354,7 +391,10 @@ const ACTIONS = {
 	},
 	setlist_row_skip: {
 		name: 'Set list: skip a row',
-		options: [field.number('row', 'Row', 1, 1, 65535, 1), field.dropdown('skip', 'Skip', C.ON_OFF)],
+		options: [
+			{ ...field.number('row', 'Row', 1, 1, 65535, 1), choices: 'row' },
+			field.dropdown('skip', 'Skip', C.ON_OFF),
+		],
 		build: (o) => [{ address: `/setlist/row/${int(o.row).value}/skip`, args: [int(onOff(o.skip))] }],
 	},
 	setlist_step: {
@@ -397,13 +437,36 @@ function nullContext() {
 	}
 }
 
-function getActionDefinitions(self) {
+/**
+ * A field as Companion gets it: one marked `choices` becomes a dropdown
+ * that still takes typed text when the show has given names for it; a
+ * pick dropdown gets the names after "by the numbers". Without names the
+ * field is as defined. `choices` maps a kind (timeline, cue, layer, raster,
+ * region, media, generator, recall, row) to its dropdown choices.
+ */
+function withChoices(field, choices) {
+	if (typeof field.choices !== 'string') return field
+	const { choices: kind, baseChoices, ...rest } = field
+	const list = choices?.[kind] ?? []
+	if (rest.type === 'dropdown') return { ...rest, choices: [...(baseChoices ?? []), ...list] }
+	if (list.length === 0) return rest
+	const { regex, min, max, step, range, ...plain } = rest
+	void regex
+	void min
+	void max
+	void step
+	void range
+	const def = plain.default === undefined || plain.default === null ? '' : plain.default
+	return { ...plain, type: 'dropdown', choices: list, default: def, allowCustom: true }
+}
+
+function getActionDefinitions(self, choices = null) {
 	const definitions = {}
 	for (const [id, action] of Object.entries(ACTIONS)) {
 		definitions[id] = {
 			name: action.name,
 			description: action.description,
-			options: action.options,
+			options: action.options.map((f) => withChoices(f, choices)),
 			callback: async (event) => {
 				const messages = action.build(event.options, self.actionContext())
 				self.sendMessages(messages)
@@ -413,4 +476,4 @@ function getActionDefinitions(self) {
 	return definitions
 }
 
-export { ACTIONS, buildAction, nullContext, getActionDefinitions, number }
+export { ACTIONS, buildAction, nullContext, getActionDefinitions, withChoices, number }
