@@ -1,0 +1,416 @@
+// The actions: each a table entry with its option fields and a `build` that
+// turns the options into the OSC messages to send, so the tests can check
+// the encoding without Companion. `getActionDefinitions` wraps them for the
+// instance.
+
+const C = require('./choices')
+const { int, float, str, number, namePart, timelinePrefix, timeArgs, cueArg, parseArgs } = require('./osc')
+
+const field = {
+	timeline: {
+		id: 'timeline',
+		type: 'textinput',
+		label: 'Timeline',
+		tooltip: 'Empty for the master timeline, else its number (from the left of the tab row) or its name',
+		default: '',
+	},
+	layer: {
+		id: 'layer',
+		type: 'textinput',
+		label: 'Layer',
+		tooltip: 'Its place in the stack from 1 at the back, or its name',
+		default: '1',
+	},
+	raster: {
+		id: 'raster',
+		type: 'textinput',
+		label: 'Raster',
+		tooltip: 'Its place in the Mappings list from 1, or its name',
+		default: '1',
+	},
+	region: {
+		id: 'region',
+		type: 'textinput',
+		label: 'Region',
+		tooltip: 'Its place in the raster from 1 at the bottom, or its name',
+		default: '1',
+	},
+	group: {
+		id: 'group',
+		type: 'textinput',
+		label: 'Pixel group',
+		tooltip: "Its place in the region's pixel map from 1, or its name",
+		default: '1',
+	},
+	time: {
+		id: 'time',
+		type: 'textinput',
+		label: 'Time',
+		tooltip: "Seconds to fade over, 'snap' to set at once, or empty for the layer's Transition",
+		default: '',
+	},
+	level: (id, label, def = 1) => ({ id, type: 'number', label, default: def, min: 0, max: 1, step: 0.01, range: true }),
+	dropdown: (id, label, choices, def) => ({ id, type: 'dropdown', label, choices, default: def ?? choices[0].id }),
+	number: (id, label, def, min, max, step) => ({ id, type: 'number', label, default: def, min, max, step }),
+	text: (id, label, def, tooltip) => ({ id, type: 'textinput', label, default: def, tooltip }),
+}
+
+const layerAddress = (options, what) => `/layer/${namePart(options.layer) || '1'}/${what}`
+const regionAddress = (options, what) =>
+	`/raster/${namePart(options.raster) || '1'}/region/${namePart(options.region) || '1'}/${what}`
+const groupAddress = (options, what) => `${regionAddress(options, 'group')}/${namePart(options.group) || '1'}/${what}`
+
+const onOff = (choice) => (choice === 'off' ? 0 : 1)
+
+/** `on`, `off`, or the opposite of what is known (else on). */
+function resolveToggle(choice, known) {
+	if (choice === 'toggle') return known === 1 || known === true ? 0 : known === 0 || known === false ? 1 : 1
+	return onOff(choice)
+}
+
+const ACTIONS = {
+	transport: {
+		name: 'Transport',
+		description: 'Go, Pause, Stop, Reset, Hold, Skip, Go next, Go previous, sections and the timecode lock',
+		options: [field.dropdown('command', 'Command', C.TRANSPORT_COMMANDS), field.timeline],
+		build: (o) => [{ address: `${timelinePrefix(o.timeline)}/transport/${o.command}`, args: [] }],
+	},
+	cue_go: {
+		name: 'Fire cue',
+		options: [field.text('cue', 'Cue', '1', 'The cue by its number (3, or 1.5) or its name'), field.timeline],
+		build: (o) => [{ address: `${timelinePrefix(o.timeline)}/cue/go`, args: [cueArg(o.cue)] }],
+	},
+	locate: {
+		name: 'Locate',
+		options: [field.text('timecode', 'Timecode', '00:00:00:00', "In the timeline's own timecode"), field.timeline],
+		build: (o) => [{ address: `${timelinePrefix(o.timeline)}/locate`, args: [str(String(o.timecode ?? '').trim())] }],
+	},
+	chase_mode: {
+		name: 'Chase mode',
+		description: 'How the timeline follows timecode',
+		options: [field.dropdown('mode', 'Mode', C.CHASE_MODES), field.timeline],
+		build: (o) => [{ address: `${timelinePrefix(o.timeline)}/chase/${o.mode}`, args: [] }],
+	},
+	blackout: {
+		name: 'Blackout',
+		description: 'Toggle uses the state reported at the Full status level when known, else the last one sent',
+		options: [field.dropdown('state', 'Blackout', C.ON_OFF_TOGGLE)],
+		build: (o, ctx) => {
+			const value = resolveToggle(o.state, ctx.known('blackout'))
+			ctx.remember('blackout', value)
+			return [{ address: '/show/blackout', args: [int(value)] }]
+		},
+	},
+	master_level: {
+		name: 'Master level',
+		options: [field.level('level', 'Level', 1)],
+		build: (o) => [{ address: '/show/master', args: [float(o.level)] }],
+	},
+	mode: {
+		name: 'Mode',
+		options: [field.dropdown('mode', 'Mode', C.MODES)],
+		build: (o) => [{ address: '/show/mode', args: [str(o.mode)] }],
+	},
+	override: {
+		name: 'Override',
+		description: 'Hands every layer to one owner, or gives each back its own',
+		options: [field.dropdown('owner', 'Override', C.OVERRIDES)],
+		build: (o) => [{ address: '/show/override', args: [str(o.owner)] }],
+	},
+	audio_master: {
+		name: 'Audio master level',
+		options: [field.level('level', 'Level', 1)],
+		build: (o) => [{ address: '/audio/master', args: [float(o.level)] }],
+	},
+	audio_mute: {
+		name: 'Audio mute',
+		description: 'Toggle uses the last state this module sent, as Enzyme does not report it',
+		options: [field.dropdown('state', 'Mute', C.ON_OFF_TOGGLE)],
+		build: (o, ctx) => {
+			const value = resolveToggle(o.state, ctx.known('audio_mute'))
+			ctx.remember('audio_mute', value)
+			return [{ address: '/audio/mute', args: [int(value)] }]
+		},
+	},
+	audio_bus_level: {
+		name: 'Audio bus level',
+		options: [field.number('bus', 'Bus (1 to 8)', 1, 1, 8, 1), field.level('level', 'Level', 1)],
+		build: (o) => [{ address: `/audio/bus/${int(o.bus).value}/level`, args: [float(o.level)] }],
+	},
+	audio_bus_mute: {
+		name: 'Audio bus mute',
+		options: [field.number('bus', 'Bus (1 to 8)', 1, 1, 8, 1), field.dropdown('state', 'Mute', C.ON_OFF)],
+		build: (o) => [{ address: `/audio/bus/${int(o.bus).value}/mute`, args: [int(onOff(o.state))] }],
+	},
+	layer_owner: {
+		name: 'Layer: owner',
+		options: [
+			field.layer,
+			field.dropdown('owner', 'Owner', C.OWNERS),
+			{
+				...field.timeline,
+				tooltip: 'For a timeline owner: empty for the master, else the timeline by number or name',
+				isVisibleExpression: '$(options:owner) == "timeline"',
+			},
+		],
+		build: (o) => {
+			const args = [str(o.owner)]
+			const tl = String(o.timeline ?? '').trim()
+			if (o.owner === 'timeline' && tl !== '') args.push(/^\d+$/.test(tl) ? int(tl) : str(tl))
+			return [{ address: layerAddress(o, 'owner'), args }]
+		},
+	},
+	layer_play_mode: {
+		name: 'Layer: play mode',
+		options: [field.layer, field.dropdown('mode', 'Play mode', C.PLAY_MODES, 'play')],
+		build: (o) => [{ address: layerAddress(o, 'play_mode'), args: [str(o.mode)] }],
+	},
+	layer_media: {
+		name: 'Layer: media',
+		description: 'The clip by the folder and tile numbers shown in Media',
+		options: [
+			field.layer,
+			field.number('folder', 'Folder', 1, 0, 65535, 1),
+			field.number('tile', 'Tile', 1, 1, 65535, 1),
+		],
+		build: (o) => [{ address: layerAddress(o, 'media'), args: [int(o.folder), int(o.tile)] }],
+	},
+	layer_generator: {
+		name: 'Layer: generator',
+		options: [
+			field.layer,
+			field.number('folder', 'Folder', 1, 0, 65535, 1),
+			field.number('tile', 'Tile', 1, 1, 65535, 1),
+		],
+		build: (o) => [{ address: layerAddress(o, 'generator'), args: [int(o.folder), int(o.tile)] }],
+	},
+	layer_effect: {
+		name: 'Layer: effect',
+		options: [
+			field.layer,
+			field.number('folder', 'Folder', 1, 0, 65535, 1),
+			field.number('tile', 'Tile', 1, 1, 65535, 1),
+		],
+		build: (o) => [{ address: layerAddress(o, 'effect'), args: [int(o.folder), int(o.tile)] }],
+	},
+	layer_mapping: {
+		name: 'Layer: mapping',
+		options: [field.layer, field.number('mapping', "Mapping number (0 for the layer's own)", 0, 0, 65535, 1)],
+		build: (o) => [{ address: layerAddress(o, 'mapping'), args: [int(o.mapping)] }],
+	},
+	layer_blend: {
+		name: 'Layer: blend mode',
+		options: [field.layer, field.dropdown('blend', 'Blend', C.BLENDS)],
+		build: (o) => [{ address: layerAddress(o, 'blend'), args: [str(o.blend)] }],
+	},
+	layer_key_mode: {
+		name: 'Layer: key mode',
+		options: [field.layer, field.dropdown('mode', 'Key', C.KEY_MODES)],
+		build: (o) => [{ address: layerAddress(o, 'key_mode'), args: [str(o.mode)] }],
+	},
+	layer_transition_time: {
+		name: 'Layer: transition time',
+		options: [field.layer, field.text('time', 'Time', '1', "Seconds, or text as the strip takes it: '2s 12f'")],
+		build: (o) => {
+			const t = String(o.time ?? '').trim()
+			const n = Number(t)
+			return [
+				{ address: layerAddress(o, 'transition_time'), args: [t !== '' && Number.isFinite(n) ? float(n) : str(t)] },
+			]
+		},
+	},
+	layer_transition_type: {
+		name: 'Layer: transition type',
+		options: [field.layer, field.dropdown('kind', 'Transition', C.TRANSITION_TYPES, 'dissolve')],
+		build: (o) => [{ address: layerAddress(o, 'transition_type'), args: [str(o.kind)] }],
+	},
+	layer_in_point: {
+		name: 'Layer: in point',
+		options: [field.layer, field.text('timecode', 'Timecode', '00:00:00:00')],
+		build: (o) => [{ address: layerAddress(o, 'in_point'), args: [str(String(o.timecode ?? '').trim())] }],
+	},
+	layer_out_point: {
+		name: 'Layer: out point',
+		options: [field.layer, field.text('timecode', 'Timecode', '00:00:00:00')],
+		build: (o) => [{ address: layerAddress(o, 'out_point'), args: [str(String(o.timecode ?? '').trim())] }],
+	},
+	layer_position: {
+		name: 'Layer: position',
+		description: 'Locates in the clip',
+		options: [field.layer, field.text('timecode', 'Timecode', '00:00:00:00')],
+		build: (o) => [{ address: layerAddress(o, 'position'), args: [str(String(o.timecode ?? '').trim())] }],
+	},
+	layer_param: {
+		name: 'Layer: set a value',
+		description: 'One parameter, over the time given or the layer’s Transition',
+		options: [
+			field.layer,
+			field.dropdown('param', 'Parameter', C.LAYER_PARAMS, 'opacity'),
+			field.number('value', 'Value', 1, -32768, 32767, 0.01),
+			field.time,
+		],
+		build: (o) => [{ address: layerAddress(o, o.param), args: [float(o.value), ...timeArgs(o.time)] }],
+	},
+	layer_colour: {
+		name: 'Layer: colour',
+		options: [
+			field.layer,
+			field.dropdown('form', 'Form', C.COLOUR_FORMS),
+			field.number('a', 'Red, hue or x', 1, 0, 360, 0.01),
+			field.number('b', 'Green, saturation or y', 1, 0, 2, 0.01),
+			field.number('c', 'Blue or intensity', 1, 0, 2, 0.01),
+			field.time,
+		],
+		build: (o) => [
+			{ address: layerAddress(o, `colour/${o.form}`), args: [float(o.a), float(o.b), float(o.c), ...timeArgs(o.time)] },
+		],
+	},
+	layer_sweep: {
+		name: 'Layer: sweep a value',
+		description: 'Sweeps a generator or effect value between two levels',
+		options: [
+			field.layer,
+			field.dropdown('kind', 'Value', C.SWEEP_KINDS),
+			field.number('slot', 'Value number (1 to 16)', 1, 1, 16, 1),
+			field.dropdown('shape', 'Shape', C.SWEEP_SHAPES),
+			{ ...field.number('from', 'From', 0, 0, 1, 0.01), isVisibleExpression: '$(options:shape) != "off"' },
+			{ ...field.number('to', 'To', 1, 0, 1, 0.01), isVisibleExpression: '$(options:shape) != "off"' },
+			{
+				...field.number('seconds', 'Seconds per sweep', 2, 0, 86400, 0.1),
+				isVisibleExpression: '$(options:shape) != "off"',
+			},
+		],
+		build: (o) => {
+			const address = layerAddress(o, `${o.kind}_${int(o.slot).value}/sweep`)
+			if (o.shape === 'off') return [{ address, args: [str('off')] }]
+			return [{ address, args: [float(o.from), float(o.to), float(o.seconds), str(o.shape)] }]
+		},
+	},
+	region_look: {
+		name: 'Region: set a value',
+		description: 'Intensity, opacity, a colour gain, kelvin, tint and the rest of a region’s look',
+		options: [
+			field.raster,
+			field.region,
+			field.dropdown('param', 'Value', C.REGION_PARAMS, 'intensity'),
+			field.number('value', 'Value', 1, -1, 12000, 0.01),
+		],
+		build: (o) => [{ address: regionAddress(o, o.param), args: [float(o.value)] }],
+	},
+	region_colour: {
+		name: 'Region: colour',
+		options: [
+			field.raster,
+			field.region,
+			field.dropdown('form', 'Form', C.COLOUR_FORMS),
+			field.number('a', 'Red, hue or x', 1, 0, 360, 0.01),
+			field.number('b', 'Green, saturation or y', 1, 0, 2, 0.01),
+			field.number('c', 'Blue or intensity', 1, 0, 2, 0.01),
+		],
+		build: (o) => [{ address: regionAddress(o, `colour/${o.form}`), args: [float(o.a), float(o.b), float(o.c)] }],
+	},
+	region_release: {
+		name: 'Region: release',
+		description: 'The saved look back, all of it or one value',
+		options: [field.raster, field.region, field.dropdown('what', 'Release', C.RELEASE_CHOICES(C.REGION_PARAMS), 'all')],
+		build: (o) => [{ address: regionAddress(o, 'release'), args: o.what === 'all' ? [] : [str(o.what)] }],
+	},
+	group_look: {
+		name: 'Pixel group: set a value',
+		options: [
+			field.raster,
+			field.region,
+			field.group,
+			field.dropdown('param', 'Value', C.GROUP_PARAMS, 'intensity'),
+			field.number('value', 'Value', 1, -1, 12000, 0.01),
+		],
+		build: (o) => [{ address: groupAddress(o, o.param), args: [float(o.value)] }],
+	},
+	group_release: {
+		name: 'Pixel group: release',
+		options: [
+			field.raster,
+			field.region,
+			field.group,
+			field.dropdown('what', 'Release', C.RELEASE_CHOICES(C.GROUP_PARAMS), 'all'),
+		],
+		build: (o) => [{ address: groupAddress(o, 'release'), args: o.what === 'all' ? [] : [str(o.what)] }],
+	},
+	recall: {
+		name: 'Recall',
+		description: 'Fires a manual recall by its bank and tile',
+		options: [field.number('bank', 'Bank', 1, 0, 65535, 1), field.number('tile', 'Tile', 1, 1, 65535, 1)],
+		build: (o) => [{ address: '/recall', args: [int(o.bank), int(o.tile)] }],
+	},
+	setlist_row_go: {
+		name: 'Set list: go on a row',
+		options: [field.number('row', 'Row', 1, 1, 65535, 1), field.dropdown('view', 'View', C.SETLIST_VIEW)],
+		build: (o) => [
+			{
+				address: `/setlist/row/${int(o.row).value}/go`,
+				args: o.view === 'default' ? [] : [int(o.view === 'yes' ? 1 : 0)],
+			},
+		],
+	},
+	setlist_row_skip: {
+		name: 'Set list: skip a row',
+		options: [field.number('row', 'Row', 1, 1, 65535, 1), field.dropdown('skip', 'Skip', C.ON_OFF)],
+		build: (o) => [{ address: `/setlist/row/${int(o.row).value}/skip`, args: [int(onOff(o.skip))] }],
+	},
+	setlist_step: {
+		name: 'Set list: next or previous',
+		options: [field.dropdown('step', 'Step', C.SETLIST_STEPS)],
+		build: (o) => [{ address: `/setlist/${o.step}`, args: [] }],
+	},
+	custom_osc: {
+		name: 'Send custom OSC',
+		description:
+			'Any address Enzyme knows; whole numbers go as ints, decimals as floats, the rest as text (quote to force text)',
+		options: [
+			field.text('address', 'Address', '/ping', 'Starts with a slash'),
+			field.text('args', 'Arguments', '', 'Separated by spaces, for example: 0.5 snap'),
+		],
+		build: (o) => {
+			let address = String(o.address ?? '').trim()
+			if (address === '') return []
+			if (!address.startsWith('/')) address = `/${address}`
+			return [{ address, args: parseArgs(o.args) }]
+		},
+	},
+}
+
+/** Builds an action's messages from its options, as the instance does. */
+function buildAction(id, options, ctx = nullContext()) {
+	const action = ACTIONS[id]
+	if (!action) throw new Error(`no action ${id}`)
+	return action.build(options, ctx)
+}
+
+/** A context that knows nothing, for tests and defaults. */
+function nullContext() {
+	const remembered = {}
+	return {
+		known: (key) => remembered[key],
+		remember: (key, value) => {
+			remembered[key] = value
+		},
+	}
+}
+
+function getActionDefinitions(self) {
+	const definitions = {}
+	for (const [id, action] of Object.entries(ACTIONS)) {
+		definitions[id] = {
+			name: action.name,
+			description: action.description,
+			options: action.options,
+			callback: async (event) => {
+				const messages = action.build(event.options, self.actionContext())
+				self.sendMessages(messages)
+			},
+		}
+	}
+	return definitions
+}
+
+module.exports = { ACTIONS, buildAction, nullContext, getActionDefinitions, number }
