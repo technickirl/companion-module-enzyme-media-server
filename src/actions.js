@@ -37,7 +37,8 @@ const field = {
 		choices: 'region',
 		type: 'textinput',
 		label: 'Region',
-		tooltip: 'Its place in the raster from 1 at the bottom, or its name',
+		tooltip:
+			'Its place in the raster from 1 at the bottom, or its name. One picked from the list names its raster too, and the Raster field is then ignored',
 		default: '1',
 	},
 	group: {
@@ -456,7 +457,8 @@ function withChoices(field, choices) {
 	void max
 	void step
 	void range
-	const def = plain.default === undefined || plain.default === null ? '' : plain.default
+	// Choice ids are strings, so a number field's default becomes one too, or it would show as a custom value.
+	const def = plain.default === undefined || plain.default === null ? '' : String(plain.default)
 	return { ...plain, type: 'dropdown', choices: list, default: def, allowCustom: true }
 }
 

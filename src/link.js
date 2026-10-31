@@ -1,5 +1,10 @@
 // The link to the engines: one UDP socket, sent from and listened on, so
-// Enzyme's replies and status come back to it. Each host is pinged every
+// Enzyme's replies and status come back to it. The engine answers from a
+// sender of its own, bound to any free port, so a reply is matched to its
+// host by address alone; the port only tells two hosts on one address
+// apart, and then only when a reply comes from the port a host listens on
+// (a real engine's never does, so a primary and a backup on one machine
+// cannot be told apart). Each host is pinged every
 // twenty seconds; two unanswered pings mean it is down, and a pong from a
 // host that was down (or never answered) subscribes to it again. Commands go
 // to every host; status is taken from the first host that answers, the
@@ -202,9 +207,20 @@ class EngineLink extends EventEmitter {
 		}
 	}
 
+	/** The host a packet came from: by address, the port as a tiebreak between hosts that share one. */
+	hostOf(rinfo) {
+		let found = -1
+		for (const [j, h] of this.hosts.entries()) {
+			if (h.address !== rinfo.address) continue
+			if (h.port === rinfo.port) return j
+			if (found < 0) found = j
+		}
+		return found
+	}
+
 	onMessage(buffer, rinfo) {
 		this.received++
-		const i = this.hosts.findIndex((h) => h.address === rinfo.address && h.port === rinfo.port)
+		const i = this.hostOf(rinfo)
 		if (i < 0) {
 			this.log('debug', `ignored ${buffer.length} bytes from ${rinfo.address}:${rinfo.port}`)
 			return

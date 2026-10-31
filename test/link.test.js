@@ -37,6 +37,8 @@ test('connects, subscribes, drops out after two unanswered pings, and comes back
 		await waitFor(() => link.live === 0, 2000, 'the primary to answer')
 		assert.deepEqual(subscribes, ['light'])
 		assert.equal(events.connection.at(-1).hosts[0].up, true)
+		// The engine answered from a sender of its own, not the port it listens on, as a real one does.
+		assert.notEqual(engine.replyPort, port)
 		await waitFor(() => events.status.length > 5, 2000, 'status')
 		assert.ok(events.status.some((m) => m.address === '/status/heartbeat'))
 
@@ -81,8 +83,9 @@ test('subscribes again when status stops but pings are answered', async () => {
 })
 
 test('sends to both engines and takes status from the primary, then the backup when the primary is lost', async () => {
-	const primary = await new FakeEngine({ port: 0 }).start()
-	const backup = await new FakeEngine({ port: 0, following: true }).start()
+	// Two engines on one address: only a reply from the listening port tells them apart.
+	const primary = await new FakeEngine({ port: 0, replyFrom: 'listener' }).start()
+	const backup = await new FakeEngine({ port: 0, following: true, replyFrom: 'listener' }).start()
 	const heard = { primary: [], backup: [] }
 	primary.on('command', (m) => heard.primary.push(m.address))
 	backup.on('ignored', (m) => heard.backup.push(m.address))

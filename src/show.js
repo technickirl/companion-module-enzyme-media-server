@@ -138,6 +138,11 @@ export class ShowModel {
 		return i < 0 ? 0 : i
 	}
 
+	/** The master timeline's id, or null with no show. */
+	get masterId() {
+		return this.timelines[this.masterIndex]?.id ?? null
+	}
+
 	/**
 	 * A timeline as an action names it: empty for the master, a number for
 	 * its place, or a name. The index in the tab row, or null when unknown.

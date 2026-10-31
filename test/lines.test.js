@@ -25,3 +25,11 @@ test('a long line over many chunks, and multibyte text across a boundary', () =>
 	const got = [...t.push(text.subarray(0, 14)), ...t.push(text.subarray(14, 18)), ...t.push(text.subarray(18))]
 	assert.deepEqual(got, ['{"name":"Encore ✓ café"}'])
 })
+
+test('a line that never ends is refused past the cap, and the splitter is clean after', () => {
+	const s = new LineSplitter({ maxLine: 100 })
+	assert.deepEqual(s.push(Buffer.from('x'.repeat(60))), [])
+	assert.throws(() => s.push(Buffer.from('y'.repeat(60))), /longer than 100 bytes/)
+	assert.equal(s.pending, 0)
+	assert.deepEqual(s.push(Buffer.from('ok\n')), ['ok'])
+})

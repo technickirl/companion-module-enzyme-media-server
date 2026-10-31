@@ -4,6 +4,7 @@
 
 const TRANSPORT_COMMANDS = [
 	{ id: 'go', label: 'Go' },
+	{ id: 'play', label: 'Play (the same as Go, for surfaces that send it)' },
 	{ id: 'pause', label: 'Pause' },
 	{ id: 'stop', label: 'Stop' },
 	{ id: 'reset', label: 'Reset' },

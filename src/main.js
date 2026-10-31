@@ -48,6 +48,7 @@ export default class EnzymeInstance extends InstanceBase {
 		this.rebuildTimer = null
 		this.rebuildDue = false
 		this.lastRebuild = 0
+		this.presetTimer = null
 		this.lastPresetCue = null
 	}
 
@@ -98,6 +99,17 @@ export default class EnzymeInstance extends InstanceBase {
 		this.setActionDefinitions(getActionDefinitions(this, choices))
 		this.setFeedbackDefinitions(getFeedbackDefinitions(this, choices))
 		this.setVariableDefinitions(variableDefinitions(this.state.timelines, this.state.layers, model))
+		this.refreshPresets()
+	}
+
+	/** The presets alone: a cue change moves the next-cues group and nothing else. */
+	refreshPresets() {
+		if (this.presetTimer) {
+			clearTimeout(this.presetTimer)
+			this.presetTimer = null
+		}
+		this.lastPresetRefresh = Date.now()
+		const model = this.model.hasShow ? this.model : null
 		const { structure, presets } = getPresets(this.label, model, this.state)
 		this.setPresetDefinitions(structure, presets)
 		this.lastPresetCue = this.state.get('cue')
@@ -111,6 +123,16 @@ export default class EnzymeInstance extends InstanceBase {
 		this.rebuildTimer = setTimeout(() => {
 			this.rebuildTimer = null
 			if (this.rebuildDue) this.rebuild()
+		}, wait)
+	}
+
+	/** Asks for the presets again, no more than once a second; a full rebuild already due covers it. */
+	schedulePresetRefresh() {
+		if (this.presetTimer || this.rebuildDue) return
+		const wait = Math.max(0, REBUILD_MS - (Date.now() - (this.lastPresetRefresh ?? 0)))
+		this.presetTimer = setTimeout(() => {
+			this.presetTimer = null
+			if (!this.rebuildDue) this.refreshPresets()
 		}, wait)
 	}
 
@@ -174,7 +196,9 @@ export default class EnzymeInstance extends InstanceBase {
 				this.onEngineChanged()
 			})
 			socket.on('thumbnail', (t) => this.onPicture(entry, `raster:${t.raster}`, t.jpeg))
-			socket.on('nextCueThumbnail', (t) => this.onPicture(entry, `next_cue:${t.raster}`, t.jpeg))
+			socket.on('nextCueThumbnail', (t) =>
+				this.onPicture(entry, `next_cue:${t.raster}:${t.timeline ?? entry.model.masterId ?? 'master'}`, t.jpeg),
+			)
 			socket.on('mediaThumbnail', (t) => {
 				entry.model.mediaKeys = entry.model.mediaKeys ?? new Map()
 				entry.model.mediaKeys.set(t.entry, t.key ?? '')
@@ -189,7 +213,7 @@ export default class EnzymeInstance extends InstanceBase {
 	}
 
 	disconnect() {
-		for (const timer of ['flushTimer', 'rebuildTimer']) {
+		for (const timer of ['flushTimer', 'rebuildTimer', 'presetTimer']) {
 			if (this[timer]) {
 				clearTimeout(this[timer])
 				this[timer] = null
@@ -317,7 +341,7 @@ export default class EnzymeInstance extends InstanceBase {
 				Object.assign(values, nameValues(this.model.hasShow ? this.model : null, this.state, this.engine))
 			else values[name] = this.state.get(name)
 		}
-		if (changed.includes('cue') && this.state.get('cue') !== this.lastPresetCue) this.scheduleRebuild()
+		if (changed.includes('cue') && this.state.get('cue') !== this.lastPresetCue) this.schedulePresetRefresh()
 		const feedbacks = new Set(feedbacksFor(changed))
 		if (changed.includes('names')) {
 			feedbacks.add('cue_label')
@@ -327,25 +351,36 @@ export default class EnzymeInstance extends InstanceBase {
 		}
 		const byId = []
 		for (const key of this.changedPictures) {
-			values[this.pictureVariable(key)] = this.pictures.get(key)
+			const variable = this.pictureVariable(key)
+			if (variable) values[variable] = this.pictures.get(key)
 			for (const [id, wanted] of this.pictureFeedbacks) if (wanted.key === key) byId.push(id)
 		}
 		this.changedPictures.clear()
-		delete values.undefined
 		if (Object.keys(values).length > 0) this.setVariableValues(values)
 		if (feedbacks.size > 0) this.checkFeedbacks(...feedbacks)
 		if (byId.length > 0) this.checkFeedbacksById(...byId)
 	}
 
-	/** The variable a picture key fills, if any (rasters and the master's next cue). */
+	/** The variable a picture key fills, if any (rasters, and the master's next cue on the first raster). */
 	pictureVariable(key) {
 		const m = /^raster:(\d+)$/.exec(key)
 		if (m) {
 			const raster = this.model.rasters.find((r) => r.id === Number(m[1]))
 			return raster ? `raster_${raster.number}_picture` : undefined
 		}
-		if (key.startsWith('next_cue:')) return 'next_cue_picture'
+		const n = /^next_cue:(\d+):(.+)$/.exec(key)
+		if (n) {
+			const first = this.model.rasters[0]
+			const master = this.model.masterId ?? 'master'
+			return first && Number(n[1]) === first.id && n[2] === String(master) ? 'next_cue_picture' : undefined
+		}
 		return undefined
+	}
+
+	/** The id of the timeline a feedback's Timeline option names; the master's for an empty one; null for none known. */
+	timelineIdOf(text) {
+		const i = this.model.timelineIndex(text)
+		return i === null ? null : this.model.timelines[i].id
 	}
 
 	// Pictures
@@ -366,7 +401,9 @@ export default class EnzymeInstance extends InstanceBase {
 				const i = model.rasterIndex(options.raster)
 				const raster = i === null ? model.rasters[0] : model.rasters[i]
 				if (!raster) return null
-				return id === 'raster_picture' ? `raster:${raster.id}` : `next_cue:${raster.id}`
+				if (id === 'raster_picture') return `raster:${raster.id}`
+				const timeline = this.timelineIdOf(options.timeline)
+				return timeline === null ? null : `next_cue:${raster.id}:${timeline}`
 			}
 			case 'media_picture': {
 				const [folder, file] = bankTileOf(options)
@@ -423,29 +460,48 @@ export default class EnzymeInstance extends InstanceBase {
 		if (this.pictureFeedbacks.delete(feedbackId)) this.updatePictureWants()
 	}
 
-	/** Tells the engines which pictures are wanted: raster and next cue pictures only while a feedback shows one. */
+	/**
+	 * Tells the engines which pictures are wanted: raster pictures only while
+	 * a Raster picture feedback shows one, and the next cue of one timeline
+	 * while a Next cue picture does. The engine pictures one timeline's next
+	 * cue per client, so when buttons ask for several the first asked for
+	 * wins and the rest are said once in the log.
+	 */
 	updatePictureWants() {
 		let rasters = false
-		let nextCueTimeline = null
+		let nextCue = false
+		const timelines = new Map()
 		for (const f of this.pictureFeedbacks.values()) {
-			if (f.id === 'raster_picture' || f.id === 'next_cue_picture') rasters = true
+			if (f.id === 'raster_picture') rasters = true
 			if (f.id === 'next_cue_picture') {
-				const i = this.model.timelineIndex(f.timeline)
-				if (i !== null && i !== this.model.masterIndex) nextCueTimeline = this.model.timelines[i].id
+				nextCue = true
+				const id = this.timelineIdOf(f.timeline)
+				if (id !== null && !timelines.has(id)) timelines.set(id, f.timeline)
 			}
 		}
-		this.wanted = { rasters, nextCueTimeline }
+		const [first] = timelines.keys()
+		const chosen = first === undefined ? null : first
+		if (timelines.size > 1 && this.wantedNextCueTimelines !== timelines.size) {
+			const names = [...timelines.values()].map((t) => (t === '' ? 'the master' : t)).join(', ')
+			this.log(
+				'warn',
+				`Next cue pictures are asked for ${timelines.size} timelines (${names}); the engine pictures one at a time, so only the first is shown`,
+			)
+		}
+		this.wantedNextCueTimelines = timelines.size
+		const master = this.model.masterId
+		this.wanted = { rasters, nextCue, nextCueTimeline: chosen === null || chosen === master ? null : chosen }
 		for (const entry of this.sockets) this.pushPictureSettings(entry)
 	}
 
 	pushPictureSettings(entry) {
 		const rate = pictureRate(this.config)
-		const wanted = this.wanted ?? { rasters: false, nextCueTimeline: null }
-		const on = wanted.rasters && rate > 0
+		const wanted = this.wanted ?? { rasters: false, nextCue: false, nextCueTimeline: null }
+		const any = (wanted.rasters || wanted.nextCue) && rate > 0
 		entry.socket.setSettings({
 			PreviewWidth: PICTURE_WIDTH,
-			PreviewRate: { per_second: on ? rate : 0 },
-			RasterPictures: on,
+			PreviewRate: { per_second: any ? rate : 0 },
+			RasterPictures: wanted.rasters && rate > 0,
 			NextCueTimeline: wanted.nextCueTimeline,
 		})
 	}
