@@ -153,7 +153,7 @@ const FEEDBACKS = {
 		options: [
 			{
 				id: 'timeline',
-				choices: 'timeline',
+				choices: 'timeline_numbered',
 				type: 'number',
 				label: 'Timeline number',
 				default: 1,

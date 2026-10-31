@@ -129,10 +129,17 @@ test('dropdown choices from the show', () => {
 	assert.deepEqual(m.recallChoices()[0], { id: '1/1', label: 'Looks › 1  Warm' })
 	assert.deepEqual(m.recallChoices()[3], { id: '2/1', label: 'Sources › 1  Camera' })
 	assert.deepEqual(m.setListRowChoices(), [
-		{ id: 1, label: '1: Main' },
-		{ id: 2, label: '2: Encore (skipped)' },
-		{ id: 3, label: '3: Main' },
+		{ id: '1', label: '1: Main' },
+		{ id: '2', label: '2: Encore (skipped)' },
+		{ id: '3', label: '3: Main' },
 	])
+	assert.equal(m.setListRow(2).timelineName, 'Encore')
+	assert.equal(m.setListRow('3').timelineName, 'Main')
+	assert.equal(m.setListRow(0), null)
+	assert.deepEqual(
+		m.timelineNumberChoices(),
+		m.timelineChoices().filter((c) => c.id !== ''),
+	)
 })
 
 test('the driving rule for each pair shape', () => {

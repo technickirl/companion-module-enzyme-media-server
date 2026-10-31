@@ -208,6 +208,13 @@ export class ShowModel {
 		return this.setList.rows.find((r) => r.id === this.currentRow) ?? null
 	}
 
+	/** A set list row by its number as the window and the OSC status count them (timeline rows from 1); null for none. */
+	setListRow(number) {
+		const n = Number(number)
+		if (!Number.isInteger(n) || n < 1) return null
+		return this.setList.rows.find((r) => r.number === n) ?? null
+	}
+
 	// Dropdown choices, with the text these fields took before kept as custom values.
 
 	timelineChoices() {
@@ -215,6 +222,11 @@ export class ShowModel {
 			{ id: '', label: 'Master timeline' },
 			...this.timelines.map((t) => ({ id: String(t.number), label: `${t.number}: ${t.name}` })),
 		]
+	}
+
+	/** The timelines by number alone, for a field that cannot mean the master by an empty value. */
+	timelineNumberChoices() {
+		return this.timelines.map((t) => ({ id: String(t.number), label: `${t.number}: ${t.name}` }))
 	}
 
 	cueChoices(timelineText) {
@@ -280,7 +292,7 @@ export class ShowModel {
 	setListRowChoices() {
 		return this.setList.rows
 			.filter((r) => r.number !== null)
-			.map((r) => ({ id: r.number, label: `${r.number}: ${r.timelineName}${r.skip ? ' (skipped)' : ''}` }))
+			.map((r) => ({ id: String(r.number), label: `${r.number}: ${r.timelineName}${r.skip ? ' (skipped)' : ''}` }))
 	}
 }
 

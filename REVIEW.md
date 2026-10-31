@@ -5,6 +5,9 @@ Reviewed at commit 8d8d640 on 31 October 2026, against the engine source in
 and `yarn check` all pass. Nothing here was run against a live engine; the
 protocol findings come from reading the engine's code, with the lines cited.
 
+**Follow-up, same day:** the fixes landed on `main` as a68e4c6 and were
+checked against the engine source again; see "The fixes, checked" at the end.
+
 Findings are ordered by how much they matter. Each says where, why, and what
 to do. Anything not listed was read and found fine; a summary of what was
 checked is at the end.
@@ -40,7 +43,7 @@ the link tests cover the real shape of the traffic.
 **Where:** `src/main.js:320`, `src/main.js:81-104`
 
 Whenever the current cue changes, `flush()` schedules `rebuild()`, which
-re-sends actions, feedbacks, variables *and* presets, throttled to once a
+re-sends actions, feedbacks, variables _and_ presets, throttled to once a
 second. The only thing a cue change affects is the "Next cues" preset group.
 During a show that is a full definitions push on every Go; Companion
 re-validates every placed action and feedback, and open option editors in the
@@ -154,3 +157,41 @@ keep `PreviewRate` above zero for either kind.
   `isVisibleExpression`) exists in `@companion-module/base` 2.2.2.
 - Timers and listeners are cleared on `disconnect()`; no sends go out from a
   stopped link or socket.
+
+## The fixes, checked (a68e4c6)
+
+Every finding above is addressed, and the fix is right where it mattered:
+
+- Replies are matched by address, with the port as a tiebreak only between
+  hosts that share one (`src/link.js` `hostOf`). The fake engine now answers
+  from a second socket bound to port 0, as the real one does, and the first
+  link test asserts the reply port differs from the listening port.
+- A cue change calls `refreshPresets()` alone, throttled; a full rebuild
+  already due covers it.
+- The control socket has a 10 s handshake timeout and a 5 s idle timeout
+  after the Welcome. The idle limit is safe: the engine sends `StatusFast` to
+  every client at its own status rate (10 a second from another machine, 30
+  on the same one, `enzyme/app/src/serve.rs:1031-1032`), which `PreviewRate`
+  does not touch (`:1551-1565` set `self.preview`, not `self.status_rate`), so
+  an admitted socket is never legitimately quiet for 5 s.
+- Next cue pictures are keyed by raster and timeline, the engine is told one
+  timeline, and several are said once in the log; `RasterPictures` goes only
+  for a Raster picture feedback.
+- The line cap, the dropdown defaults, the cue dropdowns, the Region tooltip,
+  `/transport/play` (which the engine treats as Go,
+  `enzyme/core/src/transport.rs:1424`), the `values.undefined` removal and
+  the CI test job are all as suggested.
+
+Three small things the fix left, done on this branch:
+
+- `withChoices` now makes a number field's default a string, but
+  `setListRowChoices()` gave number ids, so the Set list row fields had the
+  mismatch the other way. Row ids are strings now.
+- `timeline_is_master` took the full timeline list, whose first entry is
+  "Master timeline" with an empty id: picking it gave `timeline_0_master`,
+  never true. It now takes the numbered timelines alone.
+- `setlist_row_name` came from `snapshot.set_list.current` in the whole
+  Status, but the snapshot is part of the per-tick `StatusFast`
+  (`enzyme/protocol/src/wire.rs:1371-1373`), which this module skips, and a
+  row change alone does not send a whole Status. It is now looked up from the
+  OSC `setlist_row` number, which arrives on every change.

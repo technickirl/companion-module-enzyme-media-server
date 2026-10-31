@@ -8,7 +8,7 @@ import { getPresets } from '../src/presets.js'
 import { ACTIONS } from '../src/actions.js'
 import { hostsFromConfig } from '../src/config.js'
 import { ShowModel } from '../src/show.js'
-import { fixtureShow } from './fixture-show.js'
+import { fixtureShow, fixtureSetList } from './fixture-show.js'
 
 const msg = (address, ...args) => ({ address, args })
 
@@ -111,6 +111,10 @@ test('variables grow with the timelines and layers seen', () => {
 	assert.equal(names.recall_1_4_name, 'Blackout look')
 	assert.equal(names.engine_version, '1.0')
 	assert.equal(names.show_name, 'Fixture show')
+	assert.equal(names.setlist_row_name, '', 'no row yet')
+	shown.applySetList(fixtureSetList())
+	cues.apply(msg('/status/setlist/current', int(2), str('Encore')))
+	assert.equal(nameValues(shown, cues, null).setlist_row_name, 'Encore', 'the row name follows the OSC row number')
 	assert.equal(nameValues(null, cues, null).cue_name, '')
 	const values = initialValues()
 	assert.equal(values.position, 0)
