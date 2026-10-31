@@ -1,0 +1,34 @@
+{
+	"$schema": "../node_modules/@companion-module/base/assets/manifest.schema.json",
+	"type": "connection",
+	"id": "enzyme-media-server",
+	"name": "enzyme-media-server",
+	"shortname": "enzyme",
+	"description": "Controls the Enzyme media server over OSC: transport, cues, layers, looks, recalls and the set list, with status back",
+	"version": "0.0.0",
+	"license": "MIT",
+	"repository": "git+https://github.com/technickirl/enzyme---companion.git",
+	"bugs": "https://github.com/technickirl/enzyme---companion/issues",
+	"maintainers": [
+		{
+			"name": "Nick",
+			"email": "technickirl@gmail.com"
+		}
+	],
+	"runtime": {
+		"type": "node26",
+		"api": "nodejs-ipc",
+		"apiVersion": "0.0.0",
+		"entrypoint": "../src/main.js"
+	},
+	"legacyIds": [],
+	"manufacturer": "Enzyme",
+	"products": ["Enzyme media server"],
+	"keywords": ["media server", "video", "playback", "timeline", "osc", "led"],
+	"bonjourQueries": {
+		"bonjour_host": {
+			"type": "enzyme",
+			"protocol": "tcp"
+		}
+	}
+}

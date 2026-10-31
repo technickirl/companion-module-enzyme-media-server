@@ -1,0 +1,35 @@
+{
+	"name": "enzyme-media-server",
+	"version": "0.1.0",
+	"description": "Bitfocus Companion module for the Enzyme media server",
+	"main": "src/main.js",
+	"scripts": {
+		"format": "prettier -w .",
+		"lint:raw": "eslint",
+		"lint": "yarn lint:raw .",
+		"test": "node --test test/*.test.js",
+		"fake-engine": "node test/fake-engine.js",
+		"check": "companion-module-check",
+		"package": "companion-module-build"
+	},
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/technickirl/enzyme---companion.git"
+	},
+	"engines": {
+		"node": "^22.20 || ^26",
+		"yarn": "^4"
+	},
+	"dependencies": {
+		"@companion-module/base": "~2.2.2",
+		"osc": "^2.4.5"
+	},
+	"devDependencies": {
+		"@companion-module/tools": "^3.2.0",
+		"eslint": "^9.39.1",
+		"prettier": "^3.9.9"
+	},
+	"prettier": "@companion-module/tools/.prettierrc.json",
+	"packageManager": "yarn@4.18.1"
+}
