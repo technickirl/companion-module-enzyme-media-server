@@ -18,6 +18,10 @@ import { LineSplitter } from './lines.js'
 const PROOF_LABEL = 'enzyme control key v1\n'
 const BACKOFF_MIN = 1_000
 const BACKOFF_MAX = 30_000
+/** How long a connection may stay quiet before the Welcome: the engine gives the handshake ten seconds too. */
+const HANDSHAKE_TIMEOUT = 10_000
+/** How long an admitted socket may stay quiet: the engine sends status many times a second, so this is a dead link. */
+const IDLE_TIMEOUT = 5_000
 export const DEFAULT_PORT = 9200
 
 /** The answer to a nonce under the control key: hex HMAC-SHA256. */
@@ -58,10 +62,24 @@ export class ControlSocket extends EventEmitter {
 	 * @param {(level: string, text: string) => void} [options.log]
 	 * @param {number} [options.backoffMin] milliseconds before the first reconnection
 	 * @param {number} [options.backoffMax]
+	 * @param {number} [options.handshakeTimeout] milliseconds of silence allowed before the Welcome
+	 * @param {number} [options.idleTimeout] milliseconds of silence allowed after it
 	 * @param {(line: string) => any} [options.parse] the JSON parser, replaceable for a test
 	 * @param {() => [number, string][]} [options.tiles] the media pictures already held, for the Hello
 	 */
-	constructor({ host, port, key, name, log, backoffMin = BACKOFF_MIN, backoffMax = BACKOFF_MAX, parse, tiles }) {
+	constructor({
+		host,
+		port,
+		key,
+		name,
+		log,
+		backoffMin = BACKOFF_MIN,
+		backoffMax = BACKOFF_MAX,
+		handshakeTimeout = HANDSHAKE_TIMEOUT,
+		idleTimeout = IDLE_TIMEOUT,
+		parse,
+		tiles,
+	}) {
 		super()
 		this.host = host
 		this.port = port
@@ -70,6 +88,9 @@ export class ControlSocket extends EventEmitter {
 		this.log = log ?? (() => {})
 		this.backoffMin = backoffMin
 		this.backoffMax = backoffMax
+		this.handshakeTimeout = handshakeTimeout
+		this.idleTimeout = idleTimeout
+		this.timeouts = 0
 		this.backoff = backoffMin
 		this.parse = parse ?? JSON.parse
 		this.tiles = tiles ?? (() => [])
@@ -123,6 +144,17 @@ export class ControlSocket extends EventEmitter {
 		this.splitter = new LineSplitter()
 		this.sentSettings = {}
 		socket.setNoDelay(true)
+		// Quiet for too long, before or after the Welcome, and the socket is
+		// destroyed: 'close' then runs the usual reconnection. Without this a
+		// host that accepts and never speaks, or a half-open socket after a
+		// cable pull, would look connected for hours.
+		socket.setTimeout(this.handshakeTimeout)
+		socket.on('timeout', () => {
+			if (this.socket !== socket) return
+			this.timeouts++
+			this.log(this.connected ? 'warn' : 'debug', `${this.name}: nothing heard for ${socket.timeout} ms, reconnecting`)
+			socket.destroy()
+		})
 		socket.on('connect', () => this.log('debug', `${this.name}: connected, waiting for the challenge`))
 		socket.on('data', (chunk) => this.onData(chunk))
 		socket.on('error', (err) => this.log('debug', `${this.name}: ${err.message}`))
@@ -149,7 +181,15 @@ export class ControlSocket extends EventEmitter {
 	}
 
 	onData(chunk) {
-		for (const line of this.splitter.push(chunk)) {
+		let lines
+		try {
+			lines = this.splitter.push(chunk)
+		} catch (err) {
+			this.log('warn', `${this.name}: ${err.message}; reconnecting`)
+			this.socket?.destroy()
+			return
+		}
+		for (const line of lines) {
 			this.lines++
 			const name = classify(line)
 			if (!name) {
@@ -185,6 +225,7 @@ export class ControlSocket extends EventEmitter {
 				this.connected = true
 				this.refusal = null
 				this.backoff = this.backoffMin
+				this.socket?.setTimeout(this.idleTimeout)
 				this.engine = { name: body?.name ?? '', version: body?.version ?? '', client: body?.client ?? 0 }
 				this.log('info', `${this.name}: welcomed by ${this.engine.name} ${this.engine.version}`)
 				this.emit('welcome', this.engine)

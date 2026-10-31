@@ -204,3 +204,61 @@ test('reconnects with a backoff when nothing listens, then connects when somethi
 		socket.stop()
 	}
 })
+
+test('a host that accepts and never speaks is dropped at the handshake timeout and tried again', async () => {
+	const net = await import('node:net')
+	let connections = 0
+	const server = net.createServer(() => {
+		connections++
+	})
+	await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+	const socket = new ControlSocket({
+		host: '127.0.0.1',
+		port: server.address().port,
+		log: quiet,
+		backoffMin: 20,
+		backoffMax: 40,
+		handshakeTimeout: 60,
+	})
+	try {
+		socket.start()
+		await waitFor(() => socket.timeouts >= 2 && connections >= 2, 2000, 'two timeouts and a second connection')
+		assert.equal(socket.connected, false)
+	} finally {
+		socket.stop()
+		server.close()
+	}
+})
+
+test('an admitted socket that goes quiet is closed at the idle timeout, so a dead link is noticed', async () => {
+	const net = await import('node:net')
+	const server = net.createServer((c) => {
+		c.write(`${JSON.stringify({ Challenge: { protocol: 8, schema: 9, nonce: null } })}\n`)
+		c.once('data', () => {
+			c.write('"Admitted"\n')
+			c.write(`${JSON.stringify({ Welcome: { name: 'Silent', version: '0', client: 1 } })}\n`)
+			// Then nothing, as a half-open socket after a cable pull gives.
+		})
+		c.on('error', () => {})
+	})
+	await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+	const closed = []
+	const socket = new ControlSocket({
+		host: '127.0.0.1',
+		port: server.address().port,
+		log: quiet,
+		backoffMin: 1000,
+		idleTimeout: 80,
+	})
+	socket.on('closed', () => closed.push(Date.now()))
+	try {
+		socket.start()
+		await waitFor(() => socket.connected, 2000, 'the welcome')
+		await waitFor(() => closed.length === 1, 2000, 'the idle timeout to close it')
+		assert.equal(socket.connected, false)
+		assert.equal(socket.timeouts, 1)
+	} finally {
+		socket.stop()
+		server.close()
+	}
+})

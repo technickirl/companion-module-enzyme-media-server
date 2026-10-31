@@ -8,7 +8,7 @@ Needs Companion 5.1 or later (module API 2.2).
 
 - OSC in must be on. Enzyme listens on UDP port 9000 unless it was started on another; the Control workspace shows the address and port and lists the last messages that arrived.
 - Pick the status level in the connection's settings. Light is a handful of messages a second (timecode, position, transport, cues, section, recalls, set list). Full adds the show-wide values and every layer, hundreds of messages a second, and is needed only for the layer, blackout, mode and override feedbacks and variables.
-- A backup engine can be given as well: every command goes to both (a following engine ignores them), and status comes from the primary until it stops answering, then from the backup once it has gone live.
+- A backup engine can be given as well: every command goes to both (a following engine ignores them), and status comes from the primary until it stops answering, then from the backup once it has gone live. Give the two engines two machines: replies are told apart by address, so a primary and a backup on one machine cannot be.
 - Names and pictures over the control socket are on by default, on port 9200. The engine asks connections from other machines for its control key when one is set; from the same machine none is needed. The key goes in the connection's Control key field, which Companion keeps as a secret. The socket is read only: the module sends nothing over it beyond the handshake and a few picture settings. Switch it off and the module behaves as it did without it.
 - Pictures for buttons: none, 1, 2 or 4 a second. The engine draws raster and next cue pictures only while a button shows one.
 

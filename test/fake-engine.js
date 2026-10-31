@@ -1,5 +1,9 @@
 // A fake Enzyme engine for testing the module without a real one. It binds
 // a UDP port, answers /ping with /pong, takes /subscribe and /unsubscribe,
+// and, as the real engine does, sends its replies and status from a second
+// socket bound to any free port rather than from the one it listens on
+// (`replyFrom: 'listener'` sends from the listening socket instead, for a
+// test that needs two engines on one address told apart),
 // sends a status set to each subscriber once a second and the moving part
 // ten times a second, and echoes every command it hears to the console. It
 // keeps just enough show state (transport, cue, blackout, mode, master,
@@ -42,6 +46,7 @@ class FakeEngine extends EventEmitter {
 	 * @param {number} [options.rate] moving messages a second
 	 * @param {number|null} [options.socketPort] the control socket's port, 0 for any, null for none
 	 * @param {string} [options.key] the control key the socket asks for
+	 * @param {'sender'|'listener'} [options.replyFrom] the socket replies go from: a sender of its own (as the engine), or the listener
 	 */
 	constructor({
 		port = 9000,
@@ -52,11 +57,14 @@ class FakeEngine extends EventEmitter {
 		rate = 10,
 		socketPort = null,
 		key = '',
+		replyFrom = 'sender',
 	} = {}) {
 		super()
 		this.wantedPort = port
 		this.socketPort = socketPort
 		this.key = key
+		this.replyFrom = replyFrom
+		this.sender = null
 		this.control = null
 		this.timelines = timelines
 		this.layers = layers
@@ -97,17 +105,32 @@ class FakeEngine extends EventEmitter {
 		return this.socket ? this.socket.address().port : 0
 	}
 
-	async start() {
-		const socket = dgram.createSocket('udp4')
-		this.socket = socket
-		socket.on('message', (buffer, rinfo) => this.onMessage(buffer, rinfo))
-		await new Promise((resolve, reject) => {
+	/** The port replies come from: the sender's, else the listener's. */
+	get replyPort() {
+		const s = this.sender ?? this.socket
+		return s ? s.address().port : 0
+	}
+
+	static bind(socket, port) {
+		return new Promise((resolve, reject) => {
 			socket.once('error', reject)
-			socket.bind(this.wantedPort, '0.0.0.0', () => {
+			socket.bind(port, '0.0.0.0', () => {
 				socket.off('error', reject)
 				resolve()
 			})
 		})
+	}
+
+	async start() {
+		const socket = dgram.createSocket('udp4')
+		this.socket = socket
+		socket.on('message', (buffer, rinfo) => this.onMessage(buffer, rinfo))
+		await FakeEngine.bind(socket, this.wantedPort)
+		if (this.replyFrom !== 'listener') {
+			this.sender = dgram.createSocket('udp4')
+			this.sender.on('error', () => {})
+			await FakeEngine.bind(this.sender, 0)
+		}
 		this.steadyTimer = setInterval(() => this.sendSteady(), 1000)
 		this.movingTimer = setInterval(() => this.sendMoving(), 1000 / this.rate)
 		this.lastTick = Date.now()
@@ -131,6 +154,10 @@ class FakeEngine extends EventEmitter {
 			this.socket.close()
 			this.socket = null
 		}
+		if (this.sender) {
+			this.sender.close()
+			this.sender = null
+		}
 		if (this.control) {
 			this.control.stop()
 			this.control = null
@@ -147,9 +174,10 @@ class FakeEngine extends EventEmitter {
 	}
 
 	send(to, message) {
-		if (!this.socket) return
+		const from = this.sender ?? this.socket
+		if (!from) return
 		const buffer = encode(message)
-		this.socket.send(buffer, 0, buffer.length, to.port, to.address)
+		from.send(buffer, 0, buffer.length, to.port, to.address)
 	}
 
 	sendTo(to, messages) {

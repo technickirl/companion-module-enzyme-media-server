@@ -49,8 +49,8 @@ test('the fake engine without a socket serves OSC alone, as part 1', async () =>
 })
 
 test('a preferred host is taken for status while it answers', async () => {
-	const a = await new FakeEngine({ port: 0 }).start()
-	const b = await new FakeEngine({ port: 0 }).start()
+	const a = await new FakeEngine({ port: 0, replyFrom: 'listener' }).start()
+	const b = await new FakeEngine({ port: 0, replyFrom: 'listener' }).start()
 	const link = new EngineLink({
 		hosts: [
 			{ host: '127.0.0.1', port: a.port, name: 'primary' },

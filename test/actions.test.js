@@ -3,7 +3,7 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { ACTIONS, buildAction, nullContext } from '../src/actions.js'
+import { ACTIONS, buildAction, nullContext, withChoices } from '../src/actions.js'
 import { roundTrip } from './helpers.js'
 
 /** Builds, encodes and decodes, and gives [address, [type:value, ...]] per message. */
@@ -205,4 +205,20 @@ test('custom OSC', () => {
 	])
 	assert.deepEqual(wire('custom_osc', { address: 'ping', args: '' }), [['/ping', []]])
 	assert.deepEqual(wire('custom_osc', { address: '', args: '1' }), [])
+})
+
+test('a number field turned into a dropdown keeps its default as a choice id, a string', () => {
+	const field = { id: 'layer', choices: 'layer', type: 'number', label: 'Layer', default: 1, min: 1, max: 999, step: 1 }
+	const choices = {
+		layer: [
+			{ id: '1', label: '1: Backdrop' },
+			{ id: '2', label: '2: IMAG' },
+		],
+	}
+	const made = withChoices(field, choices)
+	assert.equal(made.type, 'dropdown')
+	assert.equal(made.default, '1')
+	assert.equal(made.allowCustom, true)
+	assert.equal('min' in made, false)
+	assert.equal(withChoices(field, null).type, 'number', 'without a show the field stays as it was')
 })

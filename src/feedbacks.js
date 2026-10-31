@@ -97,7 +97,7 @@ const FEEDBACKS = {
 	cue_is: {
 		name: 'Current cue',
 		style: GREEN,
-		options: [{ id: 'cue', type: 'textinput', label: 'Cue number', default: '1' }, timelineField],
+		options: [{ id: 'cue', choices: 'cue', type: 'textinput', label: 'Cue number', default: '1' }, timelineField],
 		keys: ['cue'],
 		check: (o, state) => {
 			const n = state.timelineNumber(o.timeline)
@@ -107,7 +107,7 @@ const FEEDBACKS = {
 	next_cue_is: {
 		name: 'Next cue',
 		style: AMBER,
-		options: [{ id: 'cue', type: 'textinput', label: 'Cue number', default: '2' }, timelineField],
+		options: [{ id: 'cue', choices: 'cue', type: 'textinput', label: 'Cue number', default: '2' }, timelineField],
 		keys: ['next_cue'],
 		check: (o, state) => {
 			const n = state.timelineNumber(o.timeline)
@@ -150,7 +150,18 @@ const FEEDBACKS = {
 		name: 'Timeline is the master',
 		description: 'Reported only when the show has more than one timeline',
 		style: BLUE,
-		options: [{ id: 'timeline', type: 'number', label: 'Timeline number', default: 1, min: 1, max: 999, step: 1 }],
+		options: [
+			{
+				id: 'timeline',
+				choices: 'timeline',
+				type: 'number',
+				label: 'Timeline number',
+				default: 1,
+				min: 1,
+				max: 999,
+				step: 1,
+			},
+		],
 		keys: ['timeline_master'],
 		check: (o, state) => state.get(`timeline_${Number(o.timeline)}_master`) === 1,
 	},
@@ -224,7 +235,8 @@ const VALUES = {
 	},
 	next_cue_picture: {
 		name: 'Next cue picture',
-		description: "What a raster will show at a timeline's next cue, as a data URI for an image element",
+		description:
+			"What a raster will show at a timeline's next cue, as a data URI for an image element. The engine pictures one timeline's next cue at a time: with buttons for several, the first asked for is shown",
 		picture: true,
 		options: [rasterField, timelineField],
 	},
