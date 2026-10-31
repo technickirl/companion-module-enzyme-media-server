@@ -194,6 +194,13 @@ const SETLIST_STEPS = [
 	{ id: 'previous', label: 'Previous row' },
 ]
 
+const PICTURE_RATES = [
+	{ id: 0, label: 'None' },
+	{ id: 1, label: '1 a second' },
+	{ id: 2, label: '2 a second' },
+	{ id: 4, label: '4 a second' },
+]
+
 const CONNECTED_WHICH = [
 	{ id: 'any', label: 'Either engine (the one status comes from)' },
 	{ id: 'primary', label: 'The primary engine' },
@@ -225,4 +232,5 @@ export {
 	SETLIST_VIEW,
 	SETLIST_STEPS,
 	CONNECTED_WHICH,
+	PICTURE_RATES,
 }

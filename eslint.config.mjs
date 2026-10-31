@@ -11,4 +11,11 @@ export default [
 			sourceType: 'module',
 		},
 	},
+	{
+		// The tests and the fake engine may use the development dependencies.
+		files: ['test/**/*.js'],
+		rules: {
+			'n/no-unpublished-import': 'off',
+		},
+	},
 ]

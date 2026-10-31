@@ -741,6 +741,7 @@ __metadata:
     "@companion-module/base": "npm:~2.2.2"
     "@companion-module/tools": "npm:^3.2.0"
     eslint: "npm:^9.39.1"
+    jpeg-js: "npm:^0.4.4"
     osc: "npm:^2.4.5"
     prettier: "npm:^3.9.9"
   languageName: unknown
@@ -1236,6 +1237,13 @@ __metadata:
   version: 4.0.0
   resolution: "isexe@npm:4.0.0"
   checksum: 10c0/5884815115bceac452877659a9c7726382531592f43dc29e5d48b7c4100661aed54018cb90bd36cb2eaeba521092570769167acbb95c18d39afdccbcca06c5ce
+  languageName: node
+  linkType: hard
+
+"jpeg-js@npm:^0.4.4":
+  version: 0.4.4
+  resolution: "jpeg-js@npm:0.4.4"
+  checksum: 10c0/4d0d5097f8e55d8bbce6f1dc32ffaf3f43f321f6222e4e6490734fdc6d005322e3bd6fb992c2df7f5b587343b1441a1c333281dc3285bc9116e369fd2a2b43a7
   languageName: node
   linkType: hard
 

@@ -49,6 +49,8 @@ class EngineLink extends EventEmitter {
 		this.socket = null
 		this.timer = null
 		this.live = -1
+		/** A host to take status from while it answers, chosen from outside (the one driving the show). */
+		this.preferred = null
 		this.sent = 0
 		this.received = 0
 	}
@@ -174,8 +176,17 @@ class EngineLink extends EventEmitter {
 		}
 	}
 
+	/** Prefers a host for status while it answers; null for the first that answers. */
+	prefer(index) {
+		const i = typeof index === 'number' && this.hosts[index] ? index : null
+		if (i === this.preferred) return
+		this.preferred = i
+		this.updateLive()
+	}
+
 	updateLive() {
-		const live = this.hosts.findIndex((h) => h.up)
+		let live = this.hosts.findIndex((h) => h.up)
+		if (this.preferred !== null && this.hosts[this.preferred].up) live = this.preferred
 		if (live !== this.live) {
 			this.live = live
 			this.log('info', live < 0 ? 'no engine answers' : `status from ${this.hosts[live].name}`)
