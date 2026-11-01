@@ -321,7 +321,7 @@ test('the Pause, Stop and Hold presets have the corrected colours and Pause send
 	assert.deepEqual(presets.transport_tc_lock.feedbacks[0].options, { state: 'chase', timeline: '' })
 })
 
-test('every transport word on a key is big: not auto, and 30 or more for one word', () => {
+test('every transport key is drawn at 30: a word, or two lines of two, fits a key', () => {
 	const { presets } = getPresets('enzyme', null, null)
 	for (const [id, preset] of Object.entries(presets)) {
 		if (!id.startsWith('transport_') || preset.type !== 'simple') continue
@@ -330,7 +330,8 @@ test('every transport word on a key is big: not auto, and 30 or more for one wor
 		assert.notEqual(size, 24, id)
 		if (!preset.style.text.includes('\\n')) assert.ok(size >= 30, `${id} ${size}`)
 	}
-	assert.equal(presets.transport_stop.style.size, 44)
+	assert.equal(presets.transport_stop.style.size, 30, 'a one-word key at 44 spilt past the key (until 0.2.2)')
+	assert.equal(presets.transport_skip_forward.style.size, 30)
 	assert.equal(presets.transport_skip_back.style.text, 'SKIP TO\\nPREV CUE')
 	assert.equal(presets.transport_go_next.style.text, 'GO\\nNEXT CUE')
 	assert.equal(presets.transport_go_previous.name, 'Go on the previous cue')

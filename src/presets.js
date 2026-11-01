@@ -362,10 +362,12 @@ function getPresets(label, model = null, state = null) {
 			feedbacks.push(lit('transport_is', { state: 'stop', timeline: '' }, AMBER, BLACK))
 		if (c.id === 'stop' || c.id === 'hold') feedbacks.push(lit('transport_is', { state: 'hold', timeline: '' }, RED))
 		if (c.id === 'tc_lock') feedbacks.push(lit('transport_is', { state: 'chase', timeline: '' }, BLUE))
-		// One word on a key gets the largest size, shrinking when it must; more get a line each.
+		// Every transport key at 30: a one-word key at 44 (PAUSE, STOP,
+		// RESET, HOLD) spilt past a Stream Deck key and showed "PA" (until
+		// 0.2.2); 30 fits a word, and two lines of two, on a key.
 		const text = c.key.replace(/\n/g, '\\n')
 		presets[id] = button(c.name, text, [act('transport', { command: c.id, timeline: '' })], feedbacks, {
-			size: c.key.includes('\n') ? 30 : 44,
+			size: 30,
 		})
 		// The Pause key sends Pause / resume; the plain Pause stays for a key that only pauses.
 		if (c.id === 'pause') continue

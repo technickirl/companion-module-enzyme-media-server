@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2 (1 November 2026)
+
+- The transport keys fit: every one at text size 30. A one-word key (Pause, Stop, Reset, Hold) was drawn at 44 and spilt past a Stream Deck key, showing "PA" or "ST". Buttons placed as **Linked** follow the preset; a button placed as a copy is dragged on again.
+
 ## 0.2.1 (1 November 2026)
 
 - The Go buttons show the current section between GO and the next cue, from a new `section` variable ("2 Act one", empty for none). The timeline Go buttons have no section line, as the engine reports a section for the master alone.
