@@ -10,6 +10,7 @@ const BASE_VARIABLES = {
 	next_cue: 'The next cue number (empty after the last)',
 	section_number: 'The section number (0 for none)',
 	section_name: 'The section name',
+	section: 'The section number and name together, empty for none',
 	heartbeat: 'Seconds the engine has been up',
 	recall_bank: 'The bank of the recall fired last',
 	recall_tile: 'The tile of the recall fired last',

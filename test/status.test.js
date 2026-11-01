@@ -27,6 +27,12 @@ test('parses each status address, whatever the argument types', () => {
 	assert.deepEqual(parseStatus(msg('/status/section', int(2), str('Verse'))), [
 		['section_number', 2],
 		['section_name', 'Verse'],
+		['section', '2 Verse'],
+	])
+	assert.deepEqual(parseStatus(msg('/status/section', int(0), str(''))), [
+		['section_number', 0],
+		['section_name', ''],
+		['section', ''],
 	])
 	assert.deepEqual(parseStatus(msg('/status/recall', int(1), int(4), str('Warm'))), [
 		['recall_bank', 1],
@@ -80,6 +86,7 @@ test('ignores what it does not know, and bad arguments', () => {
 	assert.deepEqual(parseStatus(msg('/status/section')), [
 		['section_number', 0],
 		['section_name', ''],
+		['section', ''],
 	])
 })
 

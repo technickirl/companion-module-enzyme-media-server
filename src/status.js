@@ -45,11 +45,16 @@ function parseStatus(message) {
 					return [[parts[1], num(a(0)) >= 0.5 ? 1 : 0]]
 				case 'go_count':
 					return [['go_count', Math.trunc(num(a(0)))]]
-				case 'section':
+				case 'section': {
+					// The number and name, and the two together for a button ("2 Act one"; empty for none).
+					const number = Math.trunc(num(a(0)))
+					const name = argText(a(1))
 					return [
-						['section_number', Math.trunc(num(a(0)))],
-						['section_name', argText(a(1))],
+						['section_number', number],
+						['section_name', name],
+						['section', number > 0 ? `${number} ${name}`.trim() : ''],
 					]
+				}
 				case 'recall':
 					return [
 						['recall_bank', Math.trunc(num(a(0)))],
