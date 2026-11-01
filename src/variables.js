@@ -24,6 +24,7 @@ const BASE_VARIABLES = {
 	engine_version: "The engine's version (control socket)",
 	engine_driving: 'yes while the engine the status comes from is driving the show (control socket)',
 	show_name: "The show's name (control socket)",
+	master_name: "The master timeline's name; Master until known (control socket)",
 	cue_name: "The current cue's name on the master (control socket)",
 	next_cue_name: "The next cue's name on the master (control socket)",
 	next_cue_picture: 'A picture of the next cue, as a data URI for an image element (control socket)',
@@ -104,10 +105,14 @@ function nameValues(model, state, engine) {
 		show_name: model?.name ?? '',
 		setlist_name: model?.setList?.name ?? '',
 		setlist_row_name: model?.setListRow(state?.get('setlist_row'))?.timelineName ?? '',
+		master_name: 'Master',
 		cue_name: '',
 		next_cue_name: '',
 	}
+	// Every timeline the status knows has a name variable, empty until the show names it.
+	for (const n of state?.timelines ?? []) values[`timeline_${n}_name`] = ''
 	if (!model) return values
+	values.master_name = model.timelines[model.masterIndex]?.name || 'Master'
 	const master = model.masterIndex
 	values.cue_name = model.cueName(master, state?.get('cue'))
 	values.next_cue_name = model.cueName(master, state?.get('next_cue'))
