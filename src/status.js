@@ -204,6 +204,16 @@ class EngineState {
 		if (own === undefined && this.timelines.size === 0) return this.values[what]
 		return own
 	}
+
+	/**
+	 * The timeline the Go light's timers run under for timeline `n`: the
+	 * master's (0) while the engine names no timelines, since its looping
+	 * flash and Go count are then the lone timeline's own (its key lit
+	 * green but never flashed until 0.2.5).
+	 */
+	lightKey(n) {
+		return n !== 0 && this.timelines.size === 0 ? 0 : n
+	}
 }
 
 export { parseStatus, EngineState, round }

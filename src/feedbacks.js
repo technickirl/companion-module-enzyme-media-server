@@ -121,7 +121,7 @@ const FEEDBACKS = {
 		keys: ['looping'],
 		check: (o, state, connection, light) => {
 			const n = state.timelineNumber(o.timeline)
-			return n !== null && state.timelineValue(n, 'looping') === 1 && light?.flashing(n) === true
+			return n !== null && state.timelineValue(n, 'looping') === 1 && light?.flashing(state.lightKey(n)) === true
 		},
 	},
 	go_fired: {
@@ -132,7 +132,7 @@ const FEEDBACKS = {
 		keys: ['go_count'],
 		check: (o, state, connection, light) => {
 			const n = state.timelineNumber(o.timeline)
-			return n !== null && light?.fired(n) === true
+			return n !== null && light?.fired(state.lightKey(n)) === true
 		},
 	},
 	cue_is: {

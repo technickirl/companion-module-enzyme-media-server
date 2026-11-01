@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.5 (1 November 2026)
+
+- A show's lone timeline flashes its own Go while its clips loop until Go, and shows the moment after a Go, as the master's key does: the flash and the Go count are the master's lines, and its key now reads their timers too (it lit plain green and never flashed in 0.2.4).
+
 ## 0.2.4 (1 November 2026)
 
 - A show's lone timeline lights its own Go and Stop keys. The engine reports under `/status/timeline/N/` only when it has more than one timeline, so a show with one had dark keys of its own; that timeline is the master, and its keys now read the master's state.
