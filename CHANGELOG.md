@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.3 (1 November 2026)
+
+- Go and Stop draw an icon, a triangle and a square, instead of the words, on the master's keys and on every timeline's: an icon reads at a glance beside a long timeline name, which shrinks to fit above it. Stop is a layered button now, red while held, as Go is lit. The text-only variants keep the words and size themselves.
+
 ## 0.2.2 (1 November 2026)
 
 - The transport keys fit: every one at text size 30. A one-word key (Pause, Stop, Reset, Hold) was drawn at 44 and spilt past a Stream Deck key, showing "PA" or "ST". Buttons placed as **Linked** follow the preset; a button placed as a copy is dragged on again.

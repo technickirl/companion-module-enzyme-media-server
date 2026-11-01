@@ -252,14 +252,14 @@ test('the Go preset: the layered variant has the box, three texts and the three 
 				? [
 						['box', 'background'],
 						['text', 'timeline'],
-						['text', 'go'],
+						['image', 'go'],
 						['text', 'section'],
 						['text', 'next'],
 					]
 				: [
 						['box', 'background'],
 						['text', 'timeline'],
-						['text', 'go'],
+						['image', 'go'],
 						['text', 'next'],
 					],
 		)
@@ -268,9 +268,13 @@ test('the Go preset: the layered variant has the box, three texts and the three 
 			assert.ok(simple.style.text.includes('$(enzyme:section)\\n'), simple.style.text)
 		}
 		assert.equal(layered.elements[1].text, `$(enzyme:${nameVar})`)
-		assert.equal(layered.elements[2].text, 'GO')
-		assert.equal(layered.elements[2].weight, 'bold')
-		assert.ok(layered.elements[2].fontsize >= layered.elements[1].fontsize)
+		// A triangle, not the word (since 0.2.3): a white PNG, black while Go flashes.
+		assert.ok(layered.elements[2].base64Image.value.startsWith('data:image/png;base64,'))
+		assert.equal(layered.elements[2].fillMode, 'fit')
+		assert.ok(layered.elements[1].fontsizeAllowShrink, 'a long timeline name shrinks to fit')
+		const fired = layered.feedbacks[2].styleOverrides.find((o) => o.elementId === 'go')
+		assert.equal(fired.elementProperty, 'base64Image')
+		assert.notEqual(fired.override.value, layered.elements[2].base64Image.value)
 		assert.ok(layered.elements.at(-1).text.startsWith(`$(enzyme:${nextVar}) `), layered.elements.at(-1).text)
 		assert.deepEqual(
 			layered.feedbacks.map((f) => f.feedbackId),
@@ -309,15 +313,28 @@ test('the Pause, Stop and Hold presets have the corrected colours and Pause send
 	assert.deepEqual(presets.transport_play_pause.steps[0].down[0].options, { command: 'play_pause', timeline: '' })
 	assert.deepEqual(presets.transport_play_pause.feedbacks[0].options, { state: 'stop', timeline: '' })
 	assert.equal(presets.transport_play_pause.feedbacks[0].style.bgcolor, combineRgb(200, 120, 0), 'amber while paused')
-	assert.equal(presets.transport_stop.feedbacks[0].style.bgcolor, combineRgb(180, 0, 0), 'red while held')
+	// Stop is a layered button with a square (since 0.2.3); its text variant keeps the word.
+	const [stopLayered, stopSimple] = presets.transport_stop.variants
+	assert.equal(stopSimple.feedbacks[0].style.bgcolor, combineRgb(180, 0, 0), 'red while held')
 	assert.equal(FEEDBACKS.go_fired.style.bgcolor, combineRgb(170, 255, 185))
-	assert.deepEqual(presets.transport_stop.feedbacks[0].options, { state: 'hold', timeline: '' })
-	assert.deepEqual(presets.transport_hold.feedbacks[0].options, { state: 'hold', timeline: '' })
-	assert.equal(presets.transport_stop.feedbacks[0].style.bgcolor, presets.transport_hold.feedbacks[0].style.bgcolor)
-	assert.notEqual(
-		presets.transport_stop.feedbacks[0].style.bgcolor,
-		presets.transport_play_pause.feedbacks[0].style.bgcolor,
+	assert.deepEqual(stopSimple.feedbacks[0].options, { state: 'hold', timeline: '' })
+	assert.deepEqual(stopLayered.feedbacks[0].options, { state: 'hold', timeline: '' })
+	assert.equal(stopLayered.feedbacks[0].styleOverrides[0].override.value, combineRgb(180, 0, 0))
+	assert.deepEqual(
+		stopLayered.elements.map((e) => [e.type, e.id]),
+		[
+			['box', 'background'],
+			['text', 'timeline'],
+			['image', 'stop'],
+		],
 	)
+	assert.equal(stopLayered.elements[1].text, '$(enzyme:master_name)')
+	assert.equal(stopSimple.style.text, '$(enzyme:master_name)\\nSTOP')
+	assert.equal(stopSimple.style.size, 'auto')
+	assert.deepEqual(presets.transport_hold.feedbacks[0].options, { state: 'hold', timeline: '' })
+	assert.equal(stopSimple.feedbacks[0].style.bgcolor, presets.transport_hold.feedbacks[0].style.bgcolor)
+	assert.notEqual(stopSimple.feedbacks[0].style.bgcolor, presets.transport_play_pause.feedbacks[0].style.bgcolor)
+	assert.equal(presets.timeline_2_stop?.variants?.[1]?.style.text, undefined, 'no timelines known here')
 	assert.deepEqual(presets.transport_tc_lock.feedbacks[0].options, { state: 'chase', timeline: '' })
 })
 
@@ -330,7 +347,7 @@ test('every transport key is drawn at 30: a word, or two lines of two, fits a ke
 		assert.notEqual(size, 24, id)
 		if (!preset.style.text.includes('\\n')) assert.ok(size >= 30, `${id} ${size}`)
 	}
-	assert.equal(presets.transport_stop.style.size, 30, 'a one-word key at 44 spilt past the key (until 0.2.2)')
+	assert.equal(presets.transport_hold.style.size, 30, 'a one-word key at 44 spilt past the key (until 0.2.2)')
 	assert.equal(presets.transport_skip_forward.style.size, 30)
 	assert.equal(presets.transport_skip_back.style.text, 'SKIP TO\\nPREV CUE')
 	assert.equal(presets.transport_go_next.style.text, 'GO\\nNEXT CUE')

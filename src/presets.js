@@ -4,6 +4,7 @@
 // the current one, a monitor button per raster and the next cue's picture.
 // `label` is the connection's label, for the variables.
 
+import { PLAY_WHITE, PLAY_BLACK, STOP_WHITE, STOP_BLACK } from './icons.js'
 import { combineRgb } from '@companion-module/base'
 import * as C from './choices.js'
 
@@ -254,6 +255,27 @@ function getPresets(label, model = null, state = null) {
 	// held, the timecode lock blue while chasing.
 	// With a section (the master's, the only timeline the status gives one
 	// for) the middle band gives up a line to it above the next cue.
+	const over = (elementId, color) => ({
+		elementId,
+		elementProperty: 'color',
+		override: { isExpression: false, value: color },
+	})
+	const swap = (elementId, image) => ({
+		elementId,
+		elementProperty: 'base64Image',
+		override: { isExpression: false, value: image },
+	})
+	// An icon across the middle of the key, fitted to the band it is given.
+	const icon = (id, y, height, image) => ({
+		type: 'image',
+		id,
+		x: 20,
+		y,
+		width: 60,
+		height,
+		base64Image: { isExpression: false, value: image },
+		fillMode: 'fit',
+	})
 	const goButton = ({ id, name, timeline, nameText, sectionText = null, nextText }) => {
 		const tl = timeline
 		const small = (id, y, height, text, color) => ({
@@ -271,11 +293,6 @@ function getPresets(label, model = null, state = null) {
 			valign: 'center',
 		})
 		const lines = [nameText, 'GO', ...(sectionText === null ? [] : [sectionText]), nextText]
-		const over = (elementId, color) => ({
-			elementId,
-			elementProperty: 'color',
-			override: { isExpression: false, value: color },
-		})
 		presets[id] = {
 			type: 'alternatives',
 			variants: [
@@ -295,21 +312,9 @@ function getPresets(label, model = null, state = null) {
 							borderWidth: 0,
 						},
 						small('timeline', 2, 16, nameText, WHITE),
-						{
-							type: 'text',
-							id: 'go',
-							x: 0,
-							y: 18,
-							width: 100,
-							height: sectionText === null ? 60 : 44,
-							text: 'GO',
-							color: WHITE,
-							fontsize: 100,
-							fontsizeAllowShrink: true,
-							weight: 'bold',
-							halign: 'center',
-							valign: 'center',
-						},
+						// A triangle, not the word (Nick, 1 November 2026): an icon
+						// reads at a glance beside a long timeline name.
+						icon('go', 18, sectionText === null ? 60 : 44, PLAY_WHITE),
 						...(sectionText === null ? [] : [small('section', 62, 18, sectionText, DIM_WHITE)]),
 						small('next', 80, 18, nextText, DIM_WHITE),
 					],
@@ -324,7 +329,7 @@ function getPresets(label, model = null, state = null) {
 							styleOverrides: [
 								over('background', PALE),
 								over('timeline', BLACK),
-								over('go', BLACK),
+								swap('go', PLAY_BLACK),
 								...(sectionText === null ? [] : [over('section', BLACK)]),
 								over('next', BLACK),
 							],
@@ -334,13 +339,72 @@ function getPresets(label, model = null, state = null) {
 				{
 					type: 'simple',
 					name,
-					style: { text: lines.join('\\n'), size: 18, color: WHITE, bgcolor: DARK },
+					style: { text: lines.join('\\n'), size: 'auto', color: WHITE, bgcolor: DARK },
 					steps: [{ down: [act('transport', { command: 'go', timeline: tl })], up: [] }],
 					feedbacks: [
 						lit('go_lit', { timeline: tl }, GREEN),
 						lit('looping_until_go', { timeline: tl }, GREEN),
 						lit('go_fired', { timeline: tl }, PALE, BLACK),
 					],
+				},
+			],
+		}
+	}
+	// Stop as Go: the timeline's name small on top, shrinking to fit, and a
+	// square; red while the timeline is held. The text-only variant keeps
+	// the word for a host that cannot draw layers.
+	const stopButton = ({ id, name, timeline, nameText }) => {
+		const tl = timeline
+		presets[id] = {
+			type: 'alternatives',
+			variants: [
+				{
+					type: 'layered',
+					name,
+					elements: [
+						{
+							type: 'box',
+							id: 'background',
+							x: 0,
+							y: 0,
+							width: 100,
+							height: 100,
+							color: DARK,
+							cornerRadius: 0,
+							borderWidth: 0,
+						},
+						{
+							type: 'text',
+							id: 'timeline',
+							x: 0,
+							y: 2,
+							width: 100,
+							height: 16,
+							text: nameText,
+							color: WHITE,
+							fontsize: 70,
+							fontsizeAllowShrink: true,
+							halign: 'center',
+							valign: 'center',
+						},
+						icon('stop', 22, 70, STOP_WHITE),
+					],
+					canvas: { decoration: 'none' },
+					steps: [{ down: [act('transport', { command: 'stop', timeline: tl })], up: [] }],
+					feedbacks: [
+						{
+							feedbackId: 'transport_is',
+							options: { state: 'hold', timeline: tl },
+							styleOverrides: [over('background', RED)],
+						},
+					],
+				},
+				{
+					type: 'simple',
+					name,
+					style: { text: `${nameText}\\nSTOP`, size: 'auto', color: WHITE, bgcolor: DARK },
+					steps: [{ down: [act('transport', { command: 'stop', timeline: tl })], up: [] }],
+					feedbacks: [lit('transport_is', { state: 'hold', timeline: tl }, RED)],
 				},
 			],
 		}
@@ -357,6 +421,11 @@ function getPresets(label, model = null, state = null) {
 	for (const c of C.TRANSPORT_COMMANDS) {
 		if (c.id === 'go' || c.id === 'play') continue
 		const id = `transport_${c.id}`
+		if (c.id === 'stop') {
+			stopButton({ id, name: c.name, timeline: '', nameText: v('master_name') })
+			transport.push(id)
+			continue
+		}
 		const feedbacks = []
 		if (c.id === 'pause' || c.id === 'play_pause')
 			feedbacks.push(lit('transport_is', { state: 'stop', timeline: '' }, AMBER, BLACK))
@@ -471,13 +540,7 @@ function getPresets(label, model = null, state = null) {
 			nameText: v(`timeline_${n}_name`),
 			nextText: `${v(`timeline_${n}_next_cue`)} ${v(`timeline_${n}_next_cue_name`)}`,
 		})
-		presets[stop] = button(
-			`Timeline ${n} Stop`,
-			`${v(`timeline_${n}_name`)}\\nSTOP`,
-			[act('transport', { command: 'stop', timeline: String(n) })],
-			[lit('transport_is', { state: 'hold', timeline: String(n) }, RED)],
-			{ size: 30 },
-		)
+		stopButton({ id: stop, name: `Timeline ${n} Stop`, timeline: String(n), nameText: v(`timeline_${n}_name`) })
 		timelines.push(go, stop)
 	}
 	if (timelines.length) {

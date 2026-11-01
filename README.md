@@ -14,7 +14,7 @@ Needs Companion 5.1 or later (module API 2.2).
 
 ## Transport buttons
 
-The Go preset shows the timeline's name, a large GO, the current section and the next cue's number and name, and is lit as Enzyme's own shell lights its Go: green while the timeline plays, chases timecode or waits at a mark for timecode; flashing green while its clips loop at a section end until Go; pale green for a moment each time anyone fires a Go, from any key, surface, cue or desk. Pause is amber while the timeline is paused, Stop and Hold are red while it is held (by Stop, a Hold cue or a section end), and the timecode lock is blue while it chases. The looping flash and the flash on Go need an engine from 1 November 2026 or later; an older engine lights Go green on play alone.
+The Go preset shows the timeline's name, a large triangle, the current section and the next cue's number and name, and is lit as Enzyme's own shell lights its Go: green while the timeline plays, chases timecode or waits at a mark for timecode; flashing green while its clips loop at a section end until Go; pale green for a moment each time anyone fires a Go, from any key, surface, cue or desk. Pause is amber while the timeline is paused, Stop and Hold are red while it is held (by Stop, a Hold cue or a section end), and the timecode lock is blue while it chases. The looping flash and the flash on Go need an engine from 1 November 2026 or later; an older engine lights Go green on play alone.
 
 ## Actions
 
@@ -36,7 +36,7 @@ From the control socket: `engine_name`, `engine_version`, `engine_driving`, `sho
 
 ## Presets
 
-Transport (Go as a layered button with the timeline's name, a large GO and the next cue, lit as the shell's), Cues (fire, current and next cue, timecode, section), Show (blackout, mode, override, master, connected), Recalls (bank 1, tiles 1 to 8), Set list, and Go and Stop for every timeline the engine reports.
+Transport (Go and Stop as layered buttons with the timeline's name shrunk to fit, a triangle or a square and, on Go, the next cue, lit as the shell's), Cues (fire, current and next cue, timecode, section), Show (blackout, mode, override, master, connected), Recalls (bank 1, tiles 1 to 8), Set list, and Go and Stop for every timeline the engine reports.
 
 With a show from the control socket: the master's next cues from the current one, each with its number and name and firing that cue; Go with a picture of the next cue; every stored recall by bank, with its name and picture; and a monitor button per raster. These are layered buttons with an image element, with a text-only version for a host that cannot draw layers.
 
