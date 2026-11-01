@@ -14,6 +14,9 @@ const GREEN = combineRgb(0, 140, 0)
 const RED = combineRgb(180, 0, 0)
 const AMBER = combineRgb(200, 120, 0)
 const BLUE = combineRgb(0, 80, 200)
+/** The shell's Go for a moment after any Go. */
+const PALE = combineRgb(170, 255, 185)
+const DIM_WHITE = combineRgb(200, 200, 200)
 
 function button(name, text, actions, feedbacks = [], style = {}) {
 	return {
@@ -142,10 +145,14 @@ function getPresets(label, model = null, state = null) {
 			name: 'Next cue picture',
 			notes: 'Go, with a picture of what the first raster will show at the next cue, and its number and name',
 			picture: { feedbackId: 'next_cue_picture', options: { raster: '1', timeline: '' } },
-			label: { text: `${v('next_cue')} ${v('next_cue_name')}` },
-			text: `GO\\n${v('next_cue')} ${v('next_cue_name')}`,
+			label: { text: `${v('master_name')}\\nGO\\n${v('next_cue')} ${v('next_cue_name')}` },
+			text: `${v('master_name')}\\nGO\\n${v('next_cue')} ${v('next_cue_name')}`,
 			actions: [act('transport', { command: 'go', timeline: '' })],
-			lit: [{ feedbackId: 'transport_is', options: { state: 'play', timeline: '' }, color: GREEN }],
+			lit: [
+				{ feedbackId: 'go_lit', options: { timeline: '' }, color: GREEN },
+				{ feedbackId: 'looping_until_go', options: { timeline: '' }, color: GREEN },
+				{ feedbackId: 'go_fired', options: { timeline: '' }, color: PALE },
+			],
 		})
 		structure.push({
 			id: 'show_cues',
@@ -240,24 +247,141 @@ function getPresets(label, model = null, state = null) {
 		}
 	}
 
-	// Transport
-	const transport = []
+	// Transport. Go is the shell's: the timeline's name, a large GO and the
+	// next cue, lit green while playing, chasing or waiting for timecode,
+	// flashing while clips loop until Go, pale green for a moment after any
+	// Go; Pause amber while paused (the word stop), Stop and Hold red while
+	// held, the timecode lock blue while chasing.
+	const goButton = ({ id, name, timeline, nameText, nextText }) => {
+		const tl = timeline
+		const over = (elementId, color) => ({
+			elementId,
+			elementProperty: 'color',
+			override: { isExpression: false, value: color },
+		})
+		presets[id] = {
+			type: 'alternatives',
+			variants: [
+				{
+					type: 'layered',
+					name,
+					elements: [
+						{
+							type: 'box',
+							id: 'background',
+							x: 0,
+							y: 0,
+							width: 100,
+							height: 100,
+							color: DARK,
+							cornerRadius: 0,
+							borderWidth: 0,
+						},
+						{
+							type: 'text',
+							id: 'timeline',
+							x: 0,
+							y: 2,
+							width: 100,
+							height: 18,
+							text: nameText,
+							color: WHITE,
+							fontsize: 70,
+							fontsizeAllowShrink: true,
+							halign: 'center',
+							valign: 'center',
+						},
+						{
+							type: 'text',
+							id: 'go',
+							x: 0,
+							y: 20,
+							width: 100,
+							height: 58,
+							text: 'GO',
+							color: WHITE,
+							fontsize: 100,
+							fontsizeAllowShrink: true,
+							weight: 'bold',
+							halign: 'center',
+							valign: 'center',
+						},
+						{
+							type: 'text',
+							id: 'next',
+							x: 0,
+							y: 80,
+							width: 100,
+							height: 18,
+							text: nextText,
+							color: DIM_WHITE,
+							fontsize: 70,
+							fontsizeAllowShrink: true,
+							halign: 'center',
+							valign: 'center',
+						},
+					],
+					canvas: { decoration: 'none' },
+					steps: [{ down: [act('transport', { command: 'go', timeline: tl })], up: [] }],
+					feedbacks: [
+						{ feedbackId: 'go_lit', options: { timeline: tl }, styleOverrides: [over('background', GREEN)] },
+						{ feedbackId: 'looping_until_go', options: { timeline: tl }, styleOverrides: [over('background', GREEN)] },
+						{
+							feedbackId: 'go_fired',
+							options: { timeline: tl },
+							styleOverrides: [
+								over('background', PALE),
+								over('timeline', BLACK),
+								over('go', BLACK),
+								over('next', BLACK),
+							],
+						},
+					],
+				},
+				{
+					type: 'simple',
+					name,
+					style: { text: `${nameText}\\nGO\\n${nextText}`, size: 18, color: WHITE, bgcolor: DARK },
+					steps: [{ down: [act('transport', { command: 'go', timeline: tl })], up: [] }],
+					feedbacks: [
+						lit('go_lit', { timeline: tl }, GREEN),
+						lit('looping_until_go', { timeline: tl }, GREEN),
+						lit('go_fired', { timeline: tl }, PALE, BLACK),
+					],
+				},
+			],
+		}
+	}
+	goButton({
+		id: 'transport_go',
+		name: 'Go',
+		timeline: '',
+		nameText: v('master_name'),
+		nextText: `${v('next_cue')} ${v('next_cue_name')}`,
+	})
+	const transport = ['transport_go']
 	for (const c of C.TRANSPORT_COMMANDS) {
+		if (c.id === 'go' || c.id === 'play') continue
 		const id = `transport_${c.id}`
 		const feedbacks = []
-		if (c.id === 'go') feedbacks.push(lit('transport_is', { state: 'play', timeline: '' }, GREEN))
-		if (c.id === 'hold') feedbacks.push(lit('transport_is', { state: 'hold', timeline: '' }, AMBER, BLACK))
-		if (c.id === 'stop') feedbacks.push(lit('transport_is', { state: 'stop', timeline: '' }, RED))
+		if (c.id === 'pause' || c.id === 'play_pause')
+			feedbacks.push(lit('transport_is', { state: 'stop', timeline: '' }, AMBER, BLACK))
+		if (c.id === 'stop' || c.id === 'hold') feedbacks.push(lit('transport_is', { state: 'hold', timeline: '' }, RED))
 		if (c.id === 'tc_lock') feedbacks.push(lit('transport_is', { state: 'chase', timeline: '' }, BLUE))
+		const words = c.id === 'play_pause' ? 'PAUSE' : c.label.toUpperCase()
+		// One word on a key gets the largest size, shrinking when it must; two get a line each.
+		const text = words.includes(' ') ? words.replace(' ', '\\n') : words
 		presets[id] = button(
-			c.label,
-			c.label.toUpperCase(),
+			c.id === 'play_pause' ? 'Pause / resume' : c.label,
+			text,
 			[act('transport', { command: c.id, timeline: '' })],
 			feedbacks,
 			{
-				size: c.id === 'go' ? '24' : 'auto',
+				size: words.includes(' ') ? 30 : 44,
 			},
 		)
+		// The Pause key sends Pause / resume; the plain Pause stays for a key that only pauses.
+		if (c.id === 'pause') continue
 		transport.push(id)
 	}
 	structure.push({ id: 'transport', name: 'Transport', description: 'The master timeline', definitions: transport })
@@ -344,31 +468,37 @@ function getPresets(label, model = null, state = null) {
 		definitions: ['setlist_previous', 'setlist_next', 'setlist_current'],
 	})
 
-	// Timelines 1 to 4
+	// Go and Stop for every timeline the status or the show knows.
+	const known = new Set(state?.timelines ?? [])
+	for (const t of named?.timelines ?? []) known.add(t.number)
 	const timelines = []
-	for (let n = 1; n <= 4; n++) {
+	for (const n of [...known].sort((a, b) => a - b)) {
 		const go = `timeline_${n}_go`
 		const stop = `timeline_${n}_stop`
-		presets[go] = button(
-			`Timeline ${n} Go`,
-			`${v(`timeline_${n}_name`)}\\nGO`,
-			[act('transport', { command: 'go', timeline: String(n) })],
-			[lit('transport_is', { state: 'play', timeline: String(n) }, GREEN)],
-		)
+		goButton({
+			id: go,
+			name: `Timeline ${n} Go`,
+			timeline: String(n),
+			nameText: v(`timeline_${n}_name`),
+			nextText: `${v(`timeline_${n}_next_cue`)} ${v(`timeline_${n}_next_cue_name`)}`,
+		})
 		presets[stop] = button(
 			`Timeline ${n} Stop`,
 			`${v(`timeline_${n}_name`)}\\nSTOP`,
 			[act('transport', { command: 'stop', timeline: String(n) })],
-			[lit('transport_is', { state: 'stop', timeline: String(n) }, RED)],
+			[lit('transport_is', { state: 'hold', timeline: String(n) }, RED)],
+			{ size: 30 },
 		)
 		timelines.push(go, stop)
 	}
-	structure.push({
-		id: 'timelines',
-		name: 'Timelines',
-		description: 'Named by each timeline’s variable, sent when the show has more than one',
-		definitions: timelines,
-	})
+	if (timelines.length) {
+		structure.push({
+			id: 'timelines',
+			name: 'Timelines',
+			description: 'Go and Stop for each timeline the engine has reported, named by its variable',
+			definitions: timelines,
+		})
+	}
 
 	return { structure, presets }
 }
