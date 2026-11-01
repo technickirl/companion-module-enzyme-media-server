@@ -2,22 +2,59 @@
 // Ids are what Enzyme takes on the wire, so a choice can go straight into
 // an argument.
 
+// The transport commands: `label` for the dropdown, `name` for a preset
+// and `key` for the words on its key (a newline splits the lines).
 const TRANSPORT_COMMANDS = [
-	{ id: 'go', label: 'Go' },
-	{ id: 'play', label: 'Play (the same as Go, for surfaces that send it)' },
-	{ id: 'pause', label: 'Pause' },
-	{ id: 'play_pause', label: 'Pause / resume (Pause while playing, Go while paused)' },
-	{ id: 'stop', label: 'Stop' },
-	{ id: 'reset', label: 'Reset' },
-	{ id: 'hold', label: 'Hold' },
-	{ id: 'skip_forward', label: 'Skip forward' },
-	{ id: 'skip_back', label: 'Skip back' },
-	{ id: 'go_next', label: 'Go next' },
-	{ id: 'go_previous', label: 'Go previous' },
-	{ id: 'section_next', label: 'Section next' },
-	{ id: 'section_previous', label: 'Section previous' },
-	{ id: 'tc_lock', label: 'TC lock' },
-	{ id: 'tc_release', label: 'TC release' },
+	{ id: 'go', label: 'Go', name: 'Go', key: 'GO' },
+	{ id: 'play', label: 'Play (the same as Go, for surfaces that send it)', name: 'Play', key: 'PLAY' },
+	{ id: 'pause', label: 'Pause', name: 'Pause', key: 'PAUSE' },
+	{
+		id: 'play_pause',
+		label: 'Pause / resume (Pause while playing, Go while paused)',
+		name: 'Pause / resume',
+		key: 'PAUSE',
+	},
+	{ id: 'stop', label: 'Stop', name: 'Stop', key: 'STOP' },
+	{ id: 'reset', label: 'Reset (stop and go back to the start, holding there)', name: 'Reset', key: 'RESET' },
+	{ id: 'hold', label: 'Hold (at the playhead until Go)', name: 'Hold', key: 'HOLD' },
+	{
+		id: 'skip_forward',
+		label: 'Skip forward (jump to the next cue and hold there)',
+		name: 'Skip to the next cue',
+		key: 'SKIP TO\nNEXT CUE',
+	},
+	{
+		id: 'skip_back',
+		label: 'Skip back (jump to the previous cue and hold there)',
+		name: 'Skip to the previous cue',
+		key: 'SKIP TO\nPREV CUE',
+	},
+	{
+		id: 'go_next',
+		label: 'Go next (jump to the next cue and fire it)',
+		name: 'Go on the next cue',
+		key: 'GO\nNEXT CUE',
+	},
+	{
+		id: 'go_previous',
+		label: 'Go previous (jump to the previous cue and fire it)',
+		name: 'Go on the previous cue',
+		key: 'GO\nPREV CUE',
+	},
+	{
+		id: 'section_next',
+		label: "Section next (jump to the next section's start and hold)",
+		name: 'Next section',
+		key: 'NEXT\nSECTION',
+	},
+	{
+		id: 'section_previous',
+		label: "Section previous (jump to this section's start, or the one before, and hold)",
+		name: 'Previous section',
+		key: 'PREV\nSECTION',
+	},
+	{ id: 'tc_lock', label: 'TC lock (lock the whole timeline to timecode)', name: 'Timecode lock', key: 'TC\nLOCK' },
+	{ id: 'tc_release', label: 'TC release (let go of any timecode lock)', name: 'Timecode release', key: 'TC\nRELEASE' },
 ]
 
 // What /status/transport says, in the engine's order of precedence. `stop`

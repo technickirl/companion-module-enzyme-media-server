@@ -145,8 +145,8 @@ function getPresets(label, model = null, state = null) {
 			name: 'Next cue picture',
 			notes: 'Go, with a picture of what the first raster will show at the next cue, and its number and name',
 			picture: { feedbackId: 'next_cue_picture', options: { raster: '1', timeline: '' } },
-			label: { text: `${v('master_name')}\\nGO\\n${v('next_cue')} ${v('next_cue_name')}` },
-			text: `${v('master_name')}\\nGO\\n${v('next_cue')} ${v('next_cue_name')}`,
+			label: { text: `${v('master_name')}\\nGO\\n${v('section')}\\n${v('next_cue')} ${v('next_cue_name')}` },
+			text: `${v('master_name')}\\nGO\\n${v('section')}\\n${v('next_cue')} ${v('next_cue_name')}`,
 			actions: [act('transport', { command: 'go', timeline: '' })],
 			lit: [
 				{ feedbackId: 'go_lit', options: { timeline: '' }, color: GREEN },
@@ -252,8 +252,25 @@ function getPresets(label, model = null, state = null) {
 	// flashing while clips loop until Go, pale green for a moment after any
 	// Go; Pause amber while paused (the word stop), Stop and Hold red while
 	// held, the timecode lock blue while chasing.
-	const goButton = ({ id, name, timeline, nameText, nextText }) => {
+	// With a section (the master's, the only timeline the status gives one
+	// for) the middle band gives up a line to it above the next cue.
+	const goButton = ({ id, name, timeline, nameText, sectionText = null, nextText }) => {
 		const tl = timeline
+		const small = (id, y, height, text, color) => ({
+			type: 'text',
+			id,
+			x: 0,
+			y,
+			width: 100,
+			height,
+			text,
+			color,
+			fontsize: 70,
+			fontsizeAllowShrink: true,
+			halign: 'center',
+			valign: 'center',
+		})
+		const lines = [nameText, 'GO', ...(sectionText === null ? [] : [sectionText]), nextText]
 		const over = (elementId, color) => ({
 			elementId,
 			elementProperty: 'color',
@@ -277,27 +294,14 @@ function getPresets(label, model = null, state = null) {
 							cornerRadius: 0,
 							borderWidth: 0,
 						},
-						{
-							type: 'text',
-							id: 'timeline',
-							x: 0,
-							y: 2,
-							width: 100,
-							height: 18,
-							text: nameText,
-							color: WHITE,
-							fontsize: 70,
-							fontsizeAllowShrink: true,
-							halign: 'center',
-							valign: 'center',
-						},
+						small('timeline', 2, 16, nameText, WHITE),
 						{
 							type: 'text',
 							id: 'go',
 							x: 0,
-							y: 20,
+							y: 18,
 							width: 100,
-							height: 58,
+							height: sectionText === null ? 60 : 44,
 							text: 'GO',
 							color: WHITE,
 							fontsize: 100,
@@ -306,20 +310,8 @@ function getPresets(label, model = null, state = null) {
 							halign: 'center',
 							valign: 'center',
 						},
-						{
-							type: 'text',
-							id: 'next',
-							x: 0,
-							y: 80,
-							width: 100,
-							height: 18,
-							text: nextText,
-							color: DIM_WHITE,
-							fontsize: 70,
-							fontsizeAllowShrink: true,
-							halign: 'center',
-							valign: 'center',
-						},
+						...(sectionText === null ? [] : [small('section', 62, 18, sectionText, DIM_WHITE)]),
+						small('next', 80, 18, nextText, DIM_WHITE),
 					],
 					canvas: { decoration: 'none' },
 					steps: [{ down: [act('transport', { command: 'go', timeline: tl })], up: [] }],
@@ -333,6 +325,7 @@ function getPresets(label, model = null, state = null) {
 								over('background', PALE),
 								over('timeline', BLACK),
 								over('go', BLACK),
+								...(sectionText === null ? [] : [over('section', BLACK)]),
 								over('next', BLACK),
 							],
 						},
@@ -341,7 +334,7 @@ function getPresets(label, model = null, state = null) {
 				{
 					type: 'simple',
 					name,
-					style: { text: `${nameText}\\nGO\\n${nextText}`, size: 18, color: WHITE, bgcolor: DARK },
+					style: { text: lines.join('\\n'), size: 18, color: WHITE, bgcolor: DARK },
 					steps: [{ down: [act('transport', { command: 'go', timeline: tl })], up: [] }],
 					feedbacks: [
 						lit('go_lit', { timeline: tl }, GREEN),
@@ -357,6 +350,7 @@ function getPresets(label, model = null, state = null) {
 		name: 'Go',
 		timeline: '',
 		nameText: v('master_name'),
+		sectionText: v('section'),
 		nextText: `${v('next_cue')} ${v('next_cue_name')}`,
 	})
 	const transport = ['transport_go']
@@ -368,18 +362,11 @@ function getPresets(label, model = null, state = null) {
 			feedbacks.push(lit('transport_is', { state: 'stop', timeline: '' }, AMBER, BLACK))
 		if (c.id === 'stop' || c.id === 'hold') feedbacks.push(lit('transport_is', { state: 'hold', timeline: '' }, RED))
 		if (c.id === 'tc_lock') feedbacks.push(lit('transport_is', { state: 'chase', timeline: '' }, BLUE))
-		const words = c.id === 'play_pause' ? 'PAUSE' : c.label.toUpperCase()
-		// One word on a key gets the largest size, shrinking when it must; two get a line each.
-		const text = words.includes(' ') ? words.replace(' ', '\\n') : words
-		presets[id] = button(
-			c.id === 'play_pause' ? 'Pause / resume' : c.label,
-			text,
-			[act('transport', { command: c.id, timeline: '' })],
-			feedbacks,
-			{
-				size: words.includes(' ') ? 30 : 44,
-			},
-		)
+		// One word on a key gets the largest size, shrinking when it must; more get a line each.
+		const text = c.key.replace(/\n/g, '\\n')
+		presets[id] = button(c.name, text, [act('transport', { command: c.id, timeline: '' })], feedbacks, {
+			size: c.key.includes('\n') ? 30 : 44,
+		})
 		// The Pause key sends Pause / resume; the plain Pause stays for a key that only pauses.
 		if (c.id === 'pause') continue
 		transport.push(id)

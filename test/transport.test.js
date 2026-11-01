@@ -245,20 +245,33 @@ test('the Go preset: the layered variant has the box, three texts and the three 
 		assert.equal(preset.type, 'alternatives', id)
 		const [layered, simple] = preset.variants
 		assert.equal(layered.type, 'layered')
+		const master = timeline === ''
 		assert.deepEqual(
 			layered.elements.map((e) => [e.type, e.id]),
-			[
-				['box', 'background'],
-				['text', 'timeline'],
-				['text', 'go'],
-				['text', 'next'],
-			],
+			master
+				? [
+						['box', 'background'],
+						['text', 'timeline'],
+						['text', 'go'],
+						['text', 'section'],
+						['text', 'next'],
+					]
+				: [
+						['box', 'background'],
+						['text', 'timeline'],
+						['text', 'go'],
+						['text', 'next'],
+					],
 		)
+		if (master) {
+			assert.equal(layered.elements[3].text, '$(enzyme:section)')
+			assert.ok(simple.style.text.includes('$(enzyme:section)\\n'), simple.style.text)
+		}
 		assert.equal(layered.elements[1].text, `$(enzyme:${nameVar})`)
 		assert.equal(layered.elements[2].text, 'GO')
 		assert.equal(layered.elements[2].weight, 'bold')
 		assert.ok(layered.elements[2].fontsize >= layered.elements[1].fontsize)
-		assert.ok(layered.elements[3].text.startsWith(`$(enzyme:${nextVar}) `), layered.elements[3].text)
+		assert.ok(layered.elements.at(-1).text.startsWith(`$(enzyme:${nextVar}) `), layered.elements.at(-1).text)
 		assert.deepEqual(
 			layered.feedbacks.map((f) => f.feedbackId),
 			['go_lit', 'looping_until_go', 'go_fired'],
@@ -268,7 +281,7 @@ test('the Go preset: the layered variant has the box, three texts and the three 
 			assert.equal(f.styleOverrides[0].elementId, 'background')
 			assert.equal(f.styleOverrides[0].elementProperty, 'color')
 		}
-		assert.equal(layered.feedbacks[2].styleOverrides.length, 4, 'go_fired blackens the three texts')
+		assert.equal(layered.feedbacks[2].styleOverrides.length, master ? 5 : 4, 'go_fired blackens every text')
 		assert.deepEqual(layered.steps[0].down, [{ actionId: 'transport', options: { command: 'go', timeline } }])
 		assert.equal(simple.type, 'simple')
 		assert.ok(simple.style.text.startsWith(`$(enzyme:${nameVar})\\nGO\\n$(enzyme:${nextVar})`), simple.style.text)
@@ -315,5 +328,8 @@ test('every transport word on a key is big: not auto, and 30 or more for one wor
 		if (!preset.style.text.includes('\\n')) assert.ok(size >= 30, `${id} ${size}`)
 	}
 	assert.equal(presets.transport_stop.style.size, 44)
-	assert.equal(presets.transport_skip_back.style.text, 'SKIP\\nBACK')
+	assert.equal(presets.transport_skip_back.style.text, 'SKIP TO\\nPREV CUE')
+	assert.equal(presets.transport_go_next.style.text, 'GO\\nNEXT CUE')
+	assert.equal(presets.transport_go_previous.name, 'Go on the previous cue')
+	assert.equal(presets.transport_section_next.style.text, 'NEXT\\nSECTION')
 })
