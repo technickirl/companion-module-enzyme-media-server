@@ -4,7 +4,7 @@
 // the current one, a monitor button per raster and the next cue's picture.
 // `label` is the connection's label, for the variables.
 
-import { PLAY_WHITE, PLAY_BLACK, STOP_WHITE, STOP_BLACK } from './icons.js'
+import { PLAY_WHITE, PLAY_BLACK, STOP_WHITE } from './icons.js'
 import { combineRgb } from '@companion-module/base'
 import * as C from './choices.js'
 
