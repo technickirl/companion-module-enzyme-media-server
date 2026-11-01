@@ -16,6 +16,8 @@ export default [
 		files: ['test/**/*.js'],
 		rules: {
 			'n/no-unpublished-import': 'off',
+			// The tests drive timers with node:test's mock timers, which Node 22 has.
+			'n/no-unsupported-features/node-builtins': 'off',
 		},
 	},
 ]

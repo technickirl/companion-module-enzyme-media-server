@@ -47,6 +47,9 @@ class FakeEngine extends EventEmitter {
 	 * @param {number|null} [options.socketPort] the control socket's port, 0 for any, null for none
 	 * @param {string} [options.key] the control key the socket asks for
 	 * @param {'sender'|'listener'} [options.replyFrom] the socket replies go from: a sender of its own (as the engine), or the listener
+	 * @param {boolean} [options.waiting] start the master waiting at a mark for timecode
+	 * @param {boolean} [options.looping] start the master looping at a section end until Go
+	 * @param {boolean} [options.oldEngine] leave out waiting, looping and go_count, as an engine before 1 November 2026
 	 */
 	constructor({
 		port = 9000,
@@ -58,8 +61,12 @@ class FakeEngine extends EventEmitter {
 		socketPort = null,
 		key = '',
 		replyFrom = 'sender',
+		waiting = false,
+		looping = false,
+		oldEngine = false,
 	} = {}) {
 		super()
+		this.oldEngine = oldEngine
 		this.wantedPort = port
 		this.socketPort = socketPort
 		this.key = key
@@ -87,6 +94,10 @@ class FakeEngine extends EventEmitter {
 			override: 'off',
 			recall: null,
 			setlist: [0, ''],
+			// What lights a Go button beyond the word, per timeline from 1 (the master).
+			waiting: Array.from({ length: timelines }, (_, i) => (i === 0 && waiting ? 1 : 0)),
+			looping: Array.from({ length: timelines }, (_, i) => (i === 0 && looping ? 1 : 0)),
+			gos: Array.from({ length: timelines }, () => 0),
 			audio_mute: 0,
 			layers: Array.from({ length: layers }, (_, i) => ({
 				owner: 'timeline',
@@ -228,22 +239,37 @@ class FakeEngine extends EventEmitter {
 		let changed = true
 		// The master's transport addresses bare, a timeline's after /timeline/N.
 		const bare = parts[0] === 'timeline' ? parts.slice(2) : parts
+		const timeline = parts[0] === 'timeline' && /^\d+$/.test(parts[1]) ? Number(parts[1]) : 1
+		const go = () => {
+			if (s.gos[timeline - 1] !== undefined) s.gos[timeline - 1]++
+		}
+		// The fake's own switches, never Enzyme's: /fake/looping 0|1 and /fake/waiting 0|1 for the master.
+		if (parts[0] === 'fake' && (parts[1] === 'looping' || parts[1] === 'waiting')) {
+			s[parts[1]][0] = argNumber(a[0]) >= 0.5 ? 1 : 0
+			for (const sub of this.subscribers.values()) this.sendTo(sub, this.steadySet(sub.level))
+			return
+		}
 		if (bare[0] === 'transport') {
 			switch (bare[1]) {
 				case 'go':
 				case 'play':
+					go()
 					s.transport = 'play'
+					s.looping[0] = 0
+					s.waiting[0] = 0
 					if (s.cue === '') {
 						s.cue = '1'
 						s.next_cue = '2'
 					}
 					break
+				// A pause: not playing and not held, which the engine says as stop.
 				case 'pause':
-				case 'hold':
-					s.transport = 'hold'
-					break
-				case 'stop':
 					s.transport = 'stop'
+					break
+				// Stop and Hold both hold the timeline until a Go.
+				case 'hold':
+				case 'stop':
+					s.transport = 'hold'
 					break
 				case 'reset':
 					s.transport = 'hold'
@@ -275,6 +301,7 @@ class FakeEngine extends EventEmitter {
 					changed = false
 			}
 		} else if (bare[0] === 'cue' && bare[1] === 'go') {
+			go()
 			const n = argNumber(a[0])
 			s.cue = Number.isFinite(n) ? String(n) : argText(a[0])
 			s.next_cue = Number.isFinite(n) ? String(Math.floor(n) + 1) : ''
@@ -337,6 +364,16 @@ class FakeEngine extends EventEmitter {
 			{ address: '/status/next_cue', args: [str(s.next_cue)] },
 			{ address: '/status/section', args: [int(s.section[0]), str(s.section[1])] },
 		]
+		// What lights a Go button beyond the word, from engines of 1 November 2026 on.
+		const goLit = (n, at) =>
+			this.oldEngine
+				? []
+				: [
+						{ address: at('waiting'), args: [int(s.waiting[n - 1])] },
+						{ address: at('looping'), args: [int(s.looping[n - 1])] },
+						{ address: at('go_count'), args: [int(s.gos[n - 1])] },
+					]
+		out.push(...goLit(1, (what) => `/status/${what}`))
 		if (this.timelines > 1) {
 			for (let n = 1; n <= this.timelines; n++) {
 				const at = (what) => `/status/timeline/${n}/${what}`
@@ -344,6 +381,7 @@ class FakeEngine extends EventEmitter {
 					{ address: at('transport'), args: [str(n === 1 ? s.transport : 'stop')] },
 					{ address: at('cue'), args: [str(n === 1 ? s.cue : '')] },
 					{ address: at('next_cue'), args: [str(n === 1 ? s.next_cue : '1')] },
+					...goLit(n, at),
 					{ address: at('name'), args: [str(n === 1 ? 'Main' : `Timeline ${n}`)] },
 					{ address: at('master'), args: [int(n === 1 ? 1 : 0)] },
 				)
@@ -438,6 +476,9 @@ function parseCli(argv) {
 		else if (arg === '--layers') options.layers = Number(argv[++i])
 		else if (arg === '--quiet') options.echo = false
 		else if (arg === '--following') options.following = true
+		else if (arg === '--waiting') options.waiting = true
+		else if (arg === '--looping') options.looping = true
+		else if (arg === '--old-engine') options.oldEngine = true
 		else if (arg === '--help' || arg === '-h') options.help = true
 	}
 	return options
@@ -447,7 +488,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 	const options = parseCli(process.argv.slice(2))
 	if (options.help) {
 		console.log(
-			'node test/fake-engine.js [--port 9000] [--socket-port 9200 | --no-socket] [--key secret] [--timelines 1] [--layers 4] [--following] [--quiet]',
+			'node test/fake-engine.js [--port 9000] [--socket-port 9200 | --no-socket] [--key secret] [--timelines 1] [--layers 4] [--following] [--waiting] [--looping] [--old-engine] [--quiet]',
 		)
 	} else {
 		const engine = new FakeEngine(options)

@@ -79,8 +79,11 @@ test('feedbacks follow the state', () => {
 })
 
 test('a change re-checks only the feedbacks it touches', () => {
-	assert.deepEqual(feedbacksFor(['transport']), ['transport_is'])
-	assert.deepEqual(feedbacksFor(['timeline_2_transport']), ['transport_is'])
+	assert.deepEqual(feedbacksFor(['transport']), ['transport_is', 'go_lit'])
+	assert.deepEqual(feedbacksFor(['timeline_2_transport']), ['transport_is', 'go_lit'])
+	assert.deepEqual(feedbacksFor(['waiting']), ['go_lit'])
+	assert.deepEqual(feedbacksFor(['timeline_2_looping']), ['looping_until_go'])
+	assert.deepEqual(feedbacksFor(['go_count']), ['go_fired'])
 	assert.deepEqual(feedbacksFor(['timeline_2_master']), ['timeline_is_master'])
 	assert.deepEqual(feedbacksFor(['layer_3_owner']), ['layer_owner_is'])
 	assert.deepEqual(feedbacksFor(['layer_3_opacity', 'position', 'heartbeat']), [])
