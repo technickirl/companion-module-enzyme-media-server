@@ -27,18 +27,24 @@ Wherever an action asks for a layer, timeline, raster, region or pixel group, gi
 
 A layer value fades over the layer's own Transition unless the action's Time field says otherwise: `snap` sets it at once, a number of seconds fades over that time.
 
+### Transport buttons
+
+The Go preset is lit as Enzyme's own shell lights its Go: green while the timeline plays, chases timecode or waits at a mark for timecode; flashing green while its clips loop at a section end until Go; pale green for a moment each time anyone fires a Go. Pause is amber while the timeline is paused, Stop and Hold are red while it is held (by Stop, a Hold cue or a section end), and the timecode lock is blue while it chases. The looping flash and the flash on Go need an engine from 1 November 2026 or later; an older engine lights Go green on play alone.
+
+The transport state feedback's words are the engine's: `hold` is held, waiting for a Go; `stop` is paused, not playing and not held. The Pause / resume command sends Pause while playing and Go while paused, and nothing while held.
+
 ### Actions
 
-Transport (Go, Pause, Stop, Reset, Hold, Skip, Go next and previous, sections, TC lock and release), Fire cue, Locate, Chase mode; Blackout, Master level, Mode, Override; Audio master, mute, bus level and bus mute; a layer's owner, play mode, media, generator, effect, mapping, blend, key mode, transition, in and out points, position, any parameter, colour and sweeps; a region's look, colour and release; a pixel group's look and release; Recall; the set list; and a custom OSC message for anything else.
+Transport (Go, Pause, Pause / resume, Stop, Reset, Hold, Skip, Go next and previous, sections, TC lock and release), Fire cue, Locate, Chase mode; Blackout, Master level, Mode, Override; Audio master, mute, bus level and bus mute; a layer's owner, play mode, media, generator, effect, mapping, blend, key mode, transition, in and out points, position, any parameter, colour and sweeps; a region's look, colour and release; a pixel group's look and release; Recall; the set list; and a custom OSC message for anything else.
 
 ### Feedbacks
 
-Transport state, current cue, next cue, section, blackout, mode, override, timeline is the master, connected, current set list row, last recall; and at Full, a layer's owner, showing and play mode.
+Transport state, Go is lit, Looping until Go (flashing), Go just fired, current cue, next cue, section, blackout, mode, override, timeline is the master, connected, current set list row, last recall; and at Full, a layer's owner, showing and play mode.
 
 Value feedbacks for layered buttons: Raster picture, Next cue picture, Media tile picture and Recall picture give an image element its picture as a data URI; Cue label, Recall label and Raster label give a text element a name. The presets show how they go together.
 
 ### Variables
 
-From the control socket: `engine_name`, `engine_version`, `engine_driving`, `show_name`, `cue_name`, `next_cue_name`, `next_cue_picture`, `setlist_name`, `setlist_row_name`, `timeline_N_name`, `timeline_N_cue_name`, `timeline_N_next_cue_name`, `layer_N_name`, `raster_N_name`, `raster_N_picture` and `recall_B_T_name`. The picture variables hold a data URI for an image element.
+From the control socket: `engine_name`, `engine_version`, `engine_driving`, `show_name`, `master_name`, `cue_name`, `next_cue_name`, `next_cue_picture`, `setlist_name`, `setlist_row_name`, `timeline_N_name`, `timeline_N_cue_name`, `timeline_N_next_cue_name`, `layer_N_name`, `raster_N_name`, `raster_N_picture` and `recall_B_T_name`. The picture variables hold a data URI for an image element.
 
 Everything the status gives: `timecode`, `position`, `frame`, `transport`, `cue`, `next_cue`, `section_number`, `section_name`, `heartbeat`, `recall_bank`, `recall_tile`, `recall_name`, `setlist_row`, `setlist_timeline`, `mode`, `blackout`, `master`, `override`; per timeline (when the show has more than one) `timeline_N_name`, `timeline_N_timecode`, `timeline_N_transport`, `timeline_N_cue`, `timeline_N_next_cue`, `timeline_N_master`; and at Full, per layer `layer_N_owner`, `layer_N_source`, `layer_N_showing`, `layer_N_play_mode`, `layer_N_opacity`, `layer_N_time`, `layer_N_colour_rgb`, `layer_N_colour_hsi` and `layer_N_colour_xy`. Timeline and layer variables appear as the status first mentions them.
