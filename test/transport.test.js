@@ -284,7 +284,10 @@ test('the Go preset: the layered variant has the box, three texts and the three 
 		assert.equal(layered.feedbacks[2].styleOverrides.length, master ? 5 : 4, 'go_fired blackens every text')
 		assert.deepEqual(layered.steps[0].down, [{ actionId: 'transport', options: { command: 'go', timeline } }])
 		assert.equal(simple.type, 'simple')
-		assert.ok(simple.style.text.startsWith(`$(enzyme:${nameVar})\\nGO\\n$(enzyme:${nextVar})`), simple.style.text)
+		const expected = master
+			? `$(enzyme:${nameVar})\\nGO\\n$(enzyme:section)\\n$(enzyme:${nextVar})`
+			: `$(enzyme:${nameVar})\\nGO\\n$(enzyme:${nextVar})`
+		assert.ok(simple.style.text.startsWith(expected), simple.style.text)
 		assert.deepEqual(
 			simple.feedbacks.map((f) => f.feedbackId),
 			['go_lit', 'looping_until_go', 'go_fired'],
