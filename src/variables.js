@@ -103,7 +103,7 @@ function nameValues(model, state, engine) {
 		engine_driving: model?.driving ? 'yes' : 'no',
 		show_name: model?.name ?? '',
 		setlist_name: model?.setList?.name ?? '',
-		setlist_row_name: model?.currentSetListRow()?.timelineName ?? '',
+		setlist_row_name: model?.setListRow(state?.get('setlist_row'))?.timelineName ?? '',
 		cue_name: '',
 		next_cue_name: '',
 	}

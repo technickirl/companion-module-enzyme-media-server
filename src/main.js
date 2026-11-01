@@ -94,6 +94,7 @@ export default class EnzymeInstance extends InstanceBase {
 					generator: model.generatorChoices(),
 					recall: model.recallChoices(),
 					row: model.setListRowChoices(),
+					timeline_numbered: model.timelineNumberChoices(),
 				}
 			: null
 		this.setActionDefinitions(getActionDefinitions(this, choices))
@@ -312,7 +313,7 @@ export default class EnzymeInstance extends InstanceBase {
 		if (!result) return
 		for (const name of result.changed) {
 			this.pending.add(name)
-			if (/(^|_)(cue|next_cue)$/.test(name)) this.pending.add('names')
+			if (/(^|_)(cue|next_cue)$|^setlist_row$/.test(name)) this.pending.add('names')
 		}
 		if (result.newTimeline !== null || result.newLayer !== null) this.pendingDefinitions = true
 		this.queueFlush()
