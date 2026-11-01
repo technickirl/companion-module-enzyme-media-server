@@ -6,6 +6,7 @@ const TRANSPORT_COMMANDS = [
 	{ id: 'go', label: 'Go' },
 	{ id: 'play', label: 'Play (the same as Go, for surfaces that send it)' },
 	{ id: 'pause', label: 'Pause' },
+	{ id: 'play_pause', label: 'Pause / resume (Pause while playing, Go while paused)' },
 	{ id: 'stop', label: 'Stop' },
 	{ id: 'reset', label: 'Reset' },
 	{ id: 'hold', label: 'Hold' },
@@ -19,12 +20,13 @@ const TRANSPORT_COMMANDS = [
 	{ id: 'tc_release', label: 'TC release' },
 ]
 
-// What /status/transport says.
+// What /status/transport says, in the engine's order of precedence. `stop`
+// is a pause: not playing and not held (or not yet started).
 const TRANSPORT_STATES = [
-	{ id: 'play', label: 'Playing' },
-	{ id: 'hold', label: 'Holding' },
+	{ id: 'hold', label: 'Held: Stop, a Hold cue or a section end' },
 	{ id: 'chase', label: 'Chasing timecode' },
-	{ id: 'stop', label: 'Stopped' },
+	{ id: 'play', label: 'Playing' },
+	{ id: 'stop', label: 'Paused: not playing, not held' },
 ]
 
 const CHASE_MODES = [

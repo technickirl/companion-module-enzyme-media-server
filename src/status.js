@@ -39,6 +39,12 @@ function parseStatus(message) {
 					return [['cue', argText(a(0))]]
 				case 'next_cue':
 					return [['next_cue', argText(a(0))]]
+				// Sent by engines from 1 November 2026: unknown until received.
+				case 'waiting':
+				case 'looping':
+					return [[parts[1], num(a(0)) >= 0.5 ? 1 : 0]]
+				case 'go_count':
+					return [['go_count', Math.trunc(num(a(0)))]]
 				case 'section':
 					return [
 						['section_number', Math.trunc(num(a(0)))],
@@ -82,7 +88,11 @@ function parseStatus(message) {
 					case 'name':
 						return [[`timeline_${n}_${parts[3]}`, argText(a(0))]]
 					case 'master':
-						return [[`timeline_${n}_master`, num(a(0)) >= 0.5 ? 1 : 0]]
+					case 'waiting':
+					case 'looping':
+						return [[`timeline_${n}_${parts[3]}`, num(a(0)) >= 0.5 ? 1 : 0]]
+					case 'go_count':
+						return [[`timeline_${n}_go_count`, Math.trunc(num(a(0)))]]
 					default:
 						return null
 				}
