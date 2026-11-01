@@ -4,7 +4,7 @@
 // the current one, a monitor button per raster and the next cue's picture.
 // `label` is the connection's label, for the variables.
 
-import { PLAY_WHITE, PLAY_BLACK, STOP_WHITE } from './icons.js'
+import { PLAY_WHITE, PLAY_BLACK, PLAY_LEFT_WHITE, STOP_WHITE } from './icons.js'
 import { combineRgb } from '@companion-module/base'
 import * as C from './choices.js'
 
@@ -265,13 +265,15 @@ function getPresets(label, model = null, state = null) {
 		elementProperty: 'base64Image',
 		override: { isExpression: false, value: image },
 	})
-	// An icon across the middle of the key, fitted to the band it is given.
+	// An icon in the middle of the key, fitted to the band it is given:
+	// two fifths of the key's width (three fifths read too big on a Stream
+	// Deck, Nick, 1 November 2026).
 	const icon = (id, y, height, image) => ({
 		type: 'image',
 		id,
-		x: 20,
+		x: 30,
 		y,
-		width: 60,
+		width: 40,
 		height,
 		base64Image: { isExpression: false, value: image },
 		fillMode: 'fit',
@@ -409,6 +411,67 @@ function getPresets(label, model = null, state = null) {
 			],
 		}
 	}
+	// A word key: its lines as text that shrinks to fit the key (a fixed
+	// size spilt past a Stream Deck key, at 44 and at 30 alike, until
+	// 0.2.4), under an icon when it has one, lit by its background. The
+	// text-only variant sizes itself.
+	const wordKey = ({ id, name, lines, actions, lit: litBy = [], image = null }) => {
+		const top = image === null ? 4 : 50
+		const band = (100 - top - 4) / lines.length
+		const textIds = lines.map((_, i) => `line${i}`)
+		presets[id] = {
+			type: 'alternatives',
+			variants: [
+				{
+					type: 'layered',
+					name,
+					elements: [
+						{
+							type: 'box',
+							id: 'background',
+							x: 0,
+							y: 0,
+							width: 100,
+							height: 100,
+							color: DARK,
+							cornerRadius: 0,
+							borderWidth: 0,
+						},
+						...(image === null ? [] : [icon('icon', 6, 40, image)]),
+						...lines.map((text, i) => ({
+							type: 'text',
+							id: textIds[i],
+							x: 2,
+							y: top + i * band,
+							width: 96,
+							height: band,
+							text,
+							color: WHITE,
+							fontsize: 100,
+							fontsizeAllowShrink: true,
+							weight: 'bold',
+							halign: 'center',
+							valign: 'center',
+						})),
+					],
+					canvas: { decoration: 'none' },
+					steps: [{ down: actions, up: [] }],
+					feedbacks: litBy.map((f) => ({
+						feedbackId: f.feedbackId,
+						options: f.options,
+						styleOverrides: [over('background', f.bgcolor), ...textIds.map((t) => over(t, f.color))],
+					})),
+				},
+				{
+					type: 'simple',
+					name,
+					style: { text: lines.join('\\n'), size: 'auto', color: WHITE, bgcolor: DARK },
+					steps: [{ down: actions, up: [] }],
+					feedbacks: litBy.map((f) => lit(f.feedbackId, f.options, f.bgcolor, f.color)),
+				},
+			],
+		}
+	}
 	goButton({
 		id: 'transport_go',
 		name: 'Go',
@@ -426,17 +489,29 @@ function getPresets(label, model = null, state = null) {
 			transport.push(id)
 			continue
 		}
-		const feedbacks = []
-		if (c.id === 'pause' || c.id === 'play_pause')
-			feedbacks.push(lit('transport_is', { state: 'stop', timeline: '' }, AMBER, BLACK))
-		if (c.id === 'stop' || c.id === 'hold') feedbacks.push(lit('transport_is', { state: 'hold', timeline: '' }, RED))
-		if (c.id === 'tc_lock') feedbacks.push(lit('transport_is', { state: 'chase', timeline: '' }, BLUE))
-		// Every transport key at 30: a one-word key at 44 (PAUSE, STOP,
-		// RESET, HOLD) spilt past a Stream Deck key and showed "PA" (until
-		// 0.2.2); 30 fits a word, and two lines of two, on a key.
-		const text = c.key.replace(/\n/g, '\\n')
-		presets[id] = button(c.name, text, [act('transport', { command: c.id, timeline: '' })], feedbacks, {
-			size: 30,
+		const litBy = []
+		const by = (state, bgcolor, color = WHITE) =>
+			litBy.push({ feedbackId: 'transport_is', options: { state, timeline: '' }, bgcolor, color })
+		if (c.id === 'pause' || c.id === 'play_pause') by('stop', AMBER, BLACK)
+		if (c.id === 'hold') by('hold', RED)
+		if (c.id === 'tc_lock') by('chase', BLUE)
+		// The skips as the shell draws them: a triangle for the way, and
+		// the word under it.
+		const arrow =
+			{
+				skip_forward: PLAY_WHITE,
+				section_next: PLAY_WHITE,
+				skip_back: PLAY_LEFT_WHITE,
+				section_previous: PLAY_LEFT_WHITE,
+			}[c.id] ?? null
+		const lines = arrow === null ? c.key.split('\n') : [c.id.startsWith('skip') ? 'SKIP' : 'SECTION']
+		wordKey({
+			id,
+			name: c.name,
+			lines,
+			actions: [act('transport', { command: c.id, timeline: '' })],
+			lit: litBy,
+			image: arrow,
 		})
 		// The Pause key sends Pause / resume; the plain Pause stays for a key that only pauses.
 		if (c.id === 'pause') continue

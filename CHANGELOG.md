@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.4 (1 November 2026)
+
+- A show's lone timeline lights its own Go and Stop keys. The engine reports under `/status/timeline/N/` only when it has more than one timeline, so a show with one had dark keys of its own; that timeline is the master, and its keys now read the master's state.
+- Every word key is text that shrinks to fit the key (a fixed size spilt past a Stream Deck key at 44 and at 30 alike), as the names on the Go and Stop keys do; the text-only variants size themselves.
+- The skips are drawn as the shell draws them: a triangle for the way, with SKIP or SECTION under it.
+- The Go and Stop icons are smaller: two fifths of the key's width, not three.
+
 ## 0.2.3 (1 November 2026)
 
 - Go and Stop draw an icon, a triangle and a square, instead of the words, on the master's keys and on every timeline's: an icon reads at a glance beside a long timeline name, which shrinks to fit above it. Stop is a layered button now, red while held, as Go is lit. The text-only variants keep the words and size themselves.

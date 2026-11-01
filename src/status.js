@@ -196,7 +196,13 @@ class EngineState {
 	/** A timeline's value: the master's bare one for 0, else its numbered one. */
 	timelineValue(n, what) {
 		if (n === 0) return this.values[what]
-		return this.values[`timeline_${n}_${what}`]
+		const own = this.values[`timeline_${n}_${what}`]
+		// The engine reports under /status/timeline/N/ only with more than
+		// one timeline. With one, that timeline is the master, and its
+		// state is the master's lines: a show's lone timeline had dark Go
+		// and Stop keys of its own until 0.2.4.
+		if (own === undefined && this.timelines.size === 0) return this.values[what]
+		return own
 	}
 }
 

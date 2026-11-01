@@ -29,7 +29,7 @@ A layer value fades over the layer's own Transition unless the action's Time fie
 
 ### Transport buttons
 
-The Go preset shows the timeline's name, a large triangle, the current section and the next cue's number and name, and is lit as Enzyme's own shell lights its Go: green while the timeline plays, chases timecode or waits at a mark for timecode; flashing green while its clips loop at a section end until Go; pale green for a moment each time anyone fires a Go. Pause is amber while the timeline is paused, Stop and Hold are red while it is held (by Stop, a Hold cue or a section end), and the timecode lock is blue while it chases. The looping flash and the flash on Go need an engine from 1 November 2026 or later; an older engine lights Go green on play alone.
+The Go preset shows the timeline's name, a triangle, the current section and the next cue's number and name, and is lit as Enzyme's own shell lights its Go: green while the timeline plays, chases timecode or waits at a mark for timecode; flashing green while its clips loop at a section end until Go; pale green for a moment each time anyone fires a Go. Pause is amber while the timeline is paused, Stop and Hold are red while it is held (by Stop, a Hold cue or a section end), and the timecode lock is blue while it chases. The looping flash and the flash on Go need an engine from 1 November 2026 or later; an older engine lights Go green on play alone.
 
 The transport state feedback's words are the engine's: `hold` is held, waiting for a Go; `stop` is paused, not playing and not held. The Pause / resume command sends Pause while playing and Go while paused, and nothing while held.
 

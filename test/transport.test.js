@@ -310,9 +310,16 @@ test('the Pause, Stop and Hold presets have the corrected colours and Pause send
 	const { presets, structure } = getPresets('enzyme', null, null)
 	const transport = structure.find((s) => s.id === 'transport').definitions
 	assert.ok(transport.includes('transport_play_pause') && !transport.includes('transport_pause'))
-	assert.deepEqual(presets.transport_play_pause.steps[0].down[0].options, { command: 'play_pause', timeline: '' })
-	assert.deepEqual(presets.transport_play_pause.feedbacks[0].options, { state: 'stop', timeline: '' })
-	assert.equal(presets.transport_play_pause.feedbacks[0].style.bgcolor, combineRgb(200, 120, 0), 'amber while paused')
+	assert.deepEqual(presets.transport_play_pause.variants[1].steps[0].down[0].options, {
+		command: 'play_pause',
+		timeline: '',
+	})
+	assert.deepEqual(presets.transport_play_pause.variants[1].feedbacks[0].options, { state: 'stop', timeline: '' })
+	assert.equal(
+		presets.transport_play_pause.variants[1].feedbacks[0].style.bgcolor,
+		combineRgb(200, 120, 0),
+		'amber while paused',
+	)
 	// Stop is a layered button with a square (since 0.2.3); its text variant keeps the word.
 	const [stopLayered, stopSimple] = presets.transport_stop.variants
 	assert.equal(stopSimple.feedbacks[0].style.bgcolor, combineRgb(180, 0, 0), 'red while held')
@@ -331,26 +338,50 @@ test('the Pause, Stop and Hold presets have the corrected colours and Pause send
 	assert.equal(stopLayered.elements[1].text, '$(enzyme:master_name)')
 	assert.equal(stopSimple.style.text, '$(enzyme:master_name)\\nSTOP')
 	assert.equal(stopSimple.style.size, 'auto')
-	assert.deepEqual(presets.transport_hold.feedbacks[0].options, { state: 'hold', timeline: '' })
-	assert.equal(stopSimple.feedbacks[0].style.bgcolor, presets.transport_hold.feedbacks[0].style.bgcolor)
-	assert.notEqual(stopSimple.feedbacks[0].style.bgcolor, presets.transport_play_pause.feedbacks[0].style.bgcolor)
+	assert.deepEqual(presets.transport_hold.variants[1].feedbacks[0].options, { state: 'hold', timeline: '' })
+	assert.equal(stopSimple.feedbacks[0].style.bgcolor, presets.transport_hold.variants[1].feedbacks[0].style.bgcolor)
+	assert.notEqual(
+		stopSimple.feedbacks[0].style.bgcolor,
+		presets.transport_play_pause.variants[1].feedbacks[0].style.bgcolor,
+	)
 	assert.equal(presets.timeline_2_stop?.variants?.[1]?.style.text, undefined, 'no timelines known here')
-	assert.deepEqual(presets.transport_tc_lock.feedbacks[0].options, { state: 'chase', timeline: '' })
+	assert.deepEqual(presets.transport_tc_lock.variants[1].feedbacks[0].options, { state: 'chase', timeline: '' })
 })
 
-test('every transport key is drawn at 30: a word, or two lines of two, fits a key', () => {
+test('every word key is text that shrinks to fit, with a text-only variant that sizes itself', () => {
 	const { presets } = getPresets('enzyme', null, null)
 	for (const [id, preset] of Object.entries(presets)) {
-		if (!id.startsWith('transport_') || preset.type !== 'simple') continue
-		const size = preset.style.size
-		assert.notEqual(size, 'auto', id)
-		assert.notEqual(size, 24, id)
-		if (!preset.style.text.includes('\\n')) assert.ok(size >= 30, `${id} ${size}`)
+		if (!id.startsWith('transport_')) continue
+		assert.equal(preset.type, 'alternatives', id)
+		const [layered, simple] = preset.variants
+		for (const e of layered.elements) if (e.type === 'text') assert.ok(e.fontsizeAllowShrink, `${id} ${e.id}`)
+		assert.equal(simple.style.size, 'auto', id)
 	}
-	assert.equal(presets.transport_hold.style.size, 30, 'a one-word key at 44 spilt past the key (until 0.2.2)')
-	assert.equal(presets.transport_skip_forward.style.size, 30)
-	assert.equal(presets.transport_skip_back.style.text, 'SKIP TO\\nPREV CUE')
-	assert.equal(presets.transport_go_next.style.text, 'GO\\nNEXT CUE')
-	assert.equal(presets.transport_go_previous.name, 'Go on the previous cue')
-	assert.equal(presets.transport_section_next.style.text, 'NEXT\\nSECTION')
+	const words = (id) => presets[id].variants[0].elements.filter((e) => e.type === 'text').map((e) => e.text)
+	assert.deepEqual(words('transport_hold'), ['HOLD'])
+	assert.deepEqual(words('transport_go_next'), ['GO', 'NEXT CUE'])
+	assert.equal(presets.transport_go_previous.variants[1].style.text, 'GO\\nPREV CUE')
+	assert.equal(presets.transport_go_previous.variants[1].name, 'Go on the previous cue')
+	// The skips as the shell draws them: a triangle for the way and the word.
+	for (const [id, word] of [
+		['transport_skip_forward', 'SKIP'],
+		['transport_skip_back', 'SKIP'],
+		['transport_section_next', 'SECTION'],
+		['transport_section_previous', 'SECTION'],
+	]) {
+		assert.deepEqual(words(id), [word], id)
+		const img = presets[id].variants[0].elements.find((e) => e.type === 'image')
+		assert.ok(img.base64Image.value.startsWith('data:image/png;base64,'), id)
+	}
+	const right = presets.transport_skip_forward.variants[0].elements.find((e) => e.type === 'image').base64Image.value
+	const left = presets.transport_skip_back.variants[0].elements.find((e) => e.type === 'image').base64Image.value
+	assert.notEqual(right, left, 'back points the other way')
+	assert.equal(
+		presets.transport_section_next.variants[0].elements.find((e) => e.type === 'image').base64Image.value,
+		right,
+	)
+	// The hold key is red while held, on both variants.
+	const hold = presets.transport_hold
+	assert.equal(hold.variants[0].feedbacks[0].styleOverrides[0].override.value, combineRgb(180, 0, 0))
+	assert.equal(hold.variants[1].feedbacks[0].style.bgcolor, combineRgb(180, 0, 0))
 })
