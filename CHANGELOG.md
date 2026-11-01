@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 (1 November 2026)
+
+- The Go buttons show the current section between GO and the next cue, from a new `section` variable ("2 Act one", empty for none). The timeline Go buttons have no section line, as the engine reports a section for the master alone.
+- Clearer keys and names for the other transport presets: Go on the next cue, Go on the previous cue, Skip to the next cue, Skip to the previous cue, Next section, Previous section, Timecode lock and release. The transport command dropdown says what each does.
+
 ## 0.2.0 (1 November 2026)
 
 - Transport buttons lit as Enzyme's own shell lights them. Go is green while the timeline plays, chases timecode or waits at a mark for timecode, flashes green while clips loop at a section end until Go, and goes pale green for a moment each time anyone fires a Go. Pause is amber while paused, Stop and Hold red while held.

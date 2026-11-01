@@ -14,7 +14,7 @@ Needs Companion 5.1 or later (module API 2.2).
 
 ## Transport buttons
 
-The Go preset is lit as Enzyme's own shell lights its Go: green while the timeline plays, chases timecode or waits at a mark for timecode; flashing green while its clips loop at a section end until Go; pale green for a moment each time anyone fires a Go, from any key, surface, cue or desk. Pause is amber while the timeline is paused, Stop and Hold are red while it is held (by Stop, a Hold cue or a section end), and the timecode lock is blue while it chases. The looping flash and the flash on Go need an engine from 1 November 2026 or later; an older engine lights Go green on play alone.
+The Go preset shows the timeline's name, a large GO, the current section and the next cue's number and name, and is lit as Enzyme's own shell lights its Go: green while the timeline plays, chases timecode or waits at a mark for timecode; flashing green while its clips loop at a section end until Go; pale green for a moment each time anyone fires a Go, from any key, surface, cue or desk. Pause is amber while the timeline is paused, Stop and Hold are red while it is held (by Stop, a Hold cue or a section end), and the timecode lock is blue while it chases. The looping flash and the flash on Go need an engine from 1 November 2026 or later; an older engine lights Go green on play alone.
 
 ## Actions
 
@@ -30,7 +30,7 @@ Value feedbacks, for layered buttons and their image elements: Raster picture, N
 
 ## Variables
 
-`timecode`, `position`, `frame`, `transport`, `cue`, `next_cue`, `section_number`, `section_name`, `heartbeat`, `recall_bank`, `recall_tile`, `recall_name`, `setlist_row`, `setlist_timeline`, `mode`, `blackout`, `master`, `override`; per timeline (sent when the show has more than one) `timeline_N_name`, `timeline_N_timecode`, `timeline_N_transport`, `timeline_N_cue`, `timeline_N_next_cue`, `timeline_N_master`; and at Full, per layer `layer_N_owner`, `layer_N_source`, `layer_N_showing`, `layer_N_play_mode`, `layer_N_opacity`, `layer_N_time`, `layer_N_colour_rgb`, `layer_N_colour_hsi`, `layer_N_colour_xy`. Timeline and layer variables are made as the status first mentions them.
+`timecode`, `position`, `frame`, `transport`, `cue`, `next_cue`, `section_number`, `section_name`, `section`, `heartbeat`, `recall_bank`, `recall_tile`, `recall_name`, `setlist_row`, `setlist_timeline`, `mode`, `blackout`, `master`, `override`; per timeline (sent when the show has more than one) `timeline_N_name`, `timeline_N_timecode`, `timeline_N_transport`, `timeline_N_cue`, `timeline_N_next_cue`, `timeline_N_master`; and at Full, per layer `layer_N_owner`, `layer_N_source`, `layer_N_showing`, `layer_N_play_mode`, `layer_N_opacity`, `layer_N_time`, `layer_N_colour_rgb`, `layer_N_colour_hsi`, `layer_N_colour_xy`. Timeline and layer variables are made as the status first mentions them.
 
 From the control socket: `engine_name`, `engine_version`, `engine_driving`, `show_name`, `master_name`, `cue_name`, `next_cue_name`, `next_cue_picture`, `setlist_name`, `setlist_row_name`; `timeline_N_name`, `timeline_N_cue_name` and `timeline_N_next_cue_name` for every timeline; `layer_N_name`; `raster_N_name` and `raster_N_picture`; and `recall_B_T_name` for every stored recall. The picture variables hold a data URI for an image element on a layered button.
 
