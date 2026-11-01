@@ -13,6 +13,7 @@ import { getConfigFields, hostsFromConfig, socketsFromConfig, pictureRate } from
 import { EngineLink } from './link.js'
 import { ControlSocket } from './control.js'
 import { EngineState } from './status.js'
+import { GoLight } from './golight.js'
 import { ShowModel } from './show.js'
 import { PictureStore } from './pictures.js'
 import { getActionDefinitions } from './actions.js'
@@ -50,6 +51,11 @@ export default class EnzymeInstance extends InstanceBase {
 		this.lastRebuild = 0
 		this.presetTimer = null
 		this.lastPresetCue = null
+		this.lastPresetTimelines = ''
+		// The looping flash and the moment after a Go, as the shell lights its Go.
+		this.light = new GoLight({
+			onChange: (what) => this.checkFeedbacks(what === 'flash' ? 'looping_until_go' : 'go_fired'),
+		})
 	}
 
 	async init(config, isFirstInit, secrets) {
@@ -148,6 +154,7 @@ export default class EnzymeInstance extends InstanceBase {
 		this.updateStatus(InstanceStatus.Connecting)
 		this.state = new EngineState()
 		this.connection = null
+		this.light.reset()
 		const link = new EngineLink({
 			hosts,
 			level: this.config.level,
@@ -234,6 +241,7 @@ export default class EnzymeInstance extends InstanceBase {
 		this.engine = null
 		this.pictures.clear()
 		this.changedPictures.clear()
+		this.light.stop()
 	}
 
 	/** The media pictures held, for a Hello, so a reconnection is not sent them again. */
@@ -315,7 +323,12 @@ export default class EnzymeInstance extends InstanceBase {
 			this.pending.add(name)
 			if (/(^|_)(cue|next_cue)$|^setlist_row$/.test(name)) this.pending.add('names')
 		}
-		if (result.newTimeline !== null || result.newLayer !== null) this.pendingDefinitions = true
+		if (result.newTimeline !== null || result.newLayer !== null) {
+			this.pendingDefinitions = true
+			// A timeline first seen gets its name variable and its Go preset.
+			this.pending.add('names')
+			this.schedulePresetRefresh()
+		}
 		this.queueFlush()
 	}
 
@@ -343,6 +356,7 @@ export default class EnzymeInstance extends InstanceBase {
 			else values[name] = this.state.get(name)
 		}
 		if (changed.includes('cue') && this.state.get('cue') !== this.lastPresetCue) this.schedulePresetRefresh()
+		this.light.update(this.state, changed)
 		const feedbacks = new Set(feedbacksFor(changed))
 		if (changed.includes('names')) {
 			feedbacks.add('cue_label')
@@ -519,6 +533,11 @@ export default class EnzymeInstance extends InstanceBase {
 			remember: (key, value) => {
 				this.remembered[key] = value
 			},
+			word: (timeline) => {
+				const n = this.state.timelineNumber(timeline)
+				return n === null ? undefined : this.state.timelineValue(n, 'transport')
+			},
+			log: (level, text) => this.log(level, text),
 		}
 	}
 

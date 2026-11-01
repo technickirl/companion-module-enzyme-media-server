@@ -12,6 +12,10 @@ const GREEN = { bgcolor: combineRgb(0, 140, 0), color: combineRgb(255, 255, 255)
 const RED = { bgcolor: combineRgb(180, 0, 0), color: combineRgb(255, 255, 255) }
 const AMBER = { bgcolor: combineRgb(200, 120, 0), color: combineRgb(0, 0, 0) }
 const BLUE = { bgcolor: combineRgb(0, 80, 200), color: combineRgb(255, 255, 255) }
+/** The shell's Go while clips loop at a section end: bright green, half a second each way. */
+const BRIGHT_GREEN = { bgcolor: combineRgb(0, 140, 0), color: combineRgb(255, 255, 255) }
+/** The shell's Go for a moment after any Go: pale green with black text. */
+const PALE_GREEN = { bgcolor: combineRgb(170, 255, 185), color: combineRgb(0, 0, 0) }
 
 const timelineField = {
 	id: 'timeline',
@@ -92,6 +96,43 @@ const FEEDBACKS = {
 		check: (o, state) => {
 			const n = state.timelineNumber(o.timeline)
 			return n !== null && state.timelineValue(n, 'transport') === o.state
+		},
+	},
+	go_lit: {
+		name: 'Go is lit',
+		description:
+			'The timeline is playing, chasing timecode or waiting at a mark for timecode, as the shell lights its Go',
+		style: GREEN,
+		options: [timelineField],
+		keys: ['transport', 'waiting'],
+		check: (o, state) => {
+			const n = state.timelineNumber(o.timeline)
+			if (n === null) return false
+			const word = state.timelineValue(n, 'transport')
+			return word === 'play' || word === 'chase' || state.timelineValue(n, 'waiting') === 1
+		},
+	},
+	looping_until_go: {
+		name: 'Looping until Go, flashing',
+		description:
+			'True and false by turns, half a second each, while the timeline is parked at a section end with its clips looping until Go. Needs an engine from 1 November 2026',
+		style: BRIGHT_GREEN,
+		options: [timelineField],
+		keys: ['looping'],
+		check: (o, state, connection, light) => {
+			const n = state.timelineNumber(o.timeline)
+			return n !== null && state.timelineValue(n, 'looping') === 1 && light?.flashing(n) === true
+		},
+	},
+	go_fired: {
+		name: 'Go just fired',
+		description: 'True for 300 ms after the timeline has a Go from any hand. Needs an engine from 1 November 2026',
+		style: PALE_GREEN,
+		options: [timelineField],
+		keys: ['go_count'],
+		check: (o, state, connection, light) => {
+			const n = state.timelineNumber(o.timeline)
+			return n !== null && light?.fired(n) === true
 		},
 	},
 	cue_is: {
@@ -309,10 +350,10 @@ function feedbacksFor(changedNames) {
 		.map(([id]) => id)
 }
 
-function checkFeedback(id, options, state, connection) {
+function checkFeedback(id, options, state, connection, light = null) {
 	const f = FEEDBACKS[id]
 	if (!f) throw new Error(`no feedback ${id}`)
-	return f.check(options, state, connection)
+	return f.check(options, state, connection, light)
 }
 
 function getFeedbackDefinitions(self, choices = null) {
@@ -324,7 +365,7 @@ function getFeedbackDefinitions(self, choices = null) {
 			description: f.description,
 			defaultStyle: f.style,
 			options: f.options.map((o) => withChoices(o, choices)),
-			callback: (feedback) => f.check(feedback.options, self.state, self.connection),
+			callback: (feedback) => f.check(feedback.options, self.state, self.connection, self.light),
 		}
 	}
 	for (const [id, f] of Object.entries(VALUES)) {
