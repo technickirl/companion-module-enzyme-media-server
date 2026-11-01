@@ -99,7 +99,22 @@ const ACTIONS = {
 		name: 'Transport',
 		description: 'Go, Pause, Stop, Reset, Hold, Skip, Go next, Go previous, sections and the timecode lock',
 		options: [field.dropdown('command', 'Command', C.TRANSPORT_COMMANDS), field.timeline],
-		build: (o) => [{ address: `${timelinePrefix(o.timeline)}/transport/${o.command}`, args: [] }],
+		build: (o, ctx) => {
+			let command = o.command
+			// Pause while playing, Go while paused: one key pauses and resumes,
+			// as the shell's Pause does. Held or unknown, nothing is sent, as
+			// the shell greys its Pause then.
+			if (command === 'play_pause') {
+				const word = ctx.word(o.timeline)
+				if (word === 'play' || word === 'chase') command = 'pause'
+				else if (word === 'stop') command = 'go'
+				else {
+					ctx.log?.('debug', `pause / resume: the timeline is ${word ?? 'unknown'}, nothing sent`)
+					return []
+				}
+			}
+			return [{ address: `${timelinePrefix(o.timeline)}/transport/${command}`, args: [] }]
+		},
 	},
 	cue_go: {
 		name: 'Fire cue',
@@ -428,13 +443,19 @@ function buildAction(id, options, ctx = nullContext()) {
 }
 
 /** A context that knows nothing, for tests and defaults. */
-function nullContext() {
+function nullContext(state = null) {
 	const remembered = {}
 	return {
 		known: (key) => remembered[key],
 		remember: (key, value) => {
 			remembered[key] = value
 		},
+		// The timeline's transport word from the status, for pause / resume.
+		word: (timeline) => {
+			const n = state?.timelineNumber(timeline)
+			return n === null || n === undefined ? undefined : state.timelineValue(n, 'transport')
+		},
+		log: null,
 	}
 }
 
