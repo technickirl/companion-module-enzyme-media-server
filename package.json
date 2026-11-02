@@ -1,6 +1,6 @@
 {
 	"name": "enzyme-media-server",
-	"version": "0.2.5",
+	"version": "0.3.0-takes.1",
 	"description": "Bitfocus Companion module for the Enzyme media server",
 	"main": "src/main.js",
 	"type": "module",
@@ -11,7 +11,8 @@
 		"test": "node --test test/*.test.js",
 		"fake-engine": "node test/fake-engine.js",
 		"check": "companion-module-check",
-		"package": "companion-module-build"
+		"package": "companion-module-build",
+		"package:experimental": "companion-module-build --prerelease"
 	},
 	"license": "MIT",
 	"repository": {

@@ -1,5 +1,7 @@
 ## Enzyme media server
 
+**Experimental build, for testing only.** This is the `takes` branch: the released module plus Takes, described under _Takes_ below. It installs over the released module, keeps its connections and buttons, and is marked as a pre-release in Companion. Its version is 0.3.0-takes.N.
+
 Controls an Enzyme engine over OSC, with its status back for feedbacks and variables, and reads names and pictures from the engine's control socket for dropdowns, labels and picture buttons. Needs Companion 5.1 or later.
 
 ### On the Enzyme side
@@ -33,13 +35,23 @@ The Go preset shows the timeline's name, a triangle, the current section and the
 
 The transport state feedback's words are the engine's: `hold` is held, waiting for a Go; `stop` is paused, not playing and not held. The Pause / resume command sends Pause while playing and Go while paused, and nothing while held.
 
+### Takes (experimental)
+
+Takes are for film work: a take records every timeline in takes, whole, with each region's look and a manual recall in the day's Slates bank, as a file of its own beside the show, so "what we had on take 3" can come back. The engine must have Show, Takes on (Control tab), and needs to be from 2 November 2026 or later; an older engine knows none of these addresses.
+
+- **Take**: records a take with the slate given (42A-3, or a number), or, with the field empty, lets the engine name it Take N for the day. Works in Live mode: nothing on screen changes, so the preset keys go pale green for a moment as the take lands.
+- **Take: restore**: puts a take back by its slate: every timeline it holds, one timeline by number or name, or one layer's track on that timeline (the layer needs its timeline named). An edit, which the engine refuses in Live mode.
+- **Take: region looks live**: sets the region looks a take holds, live, as a desk would, in any mode.
+
+Feedbacks: _Last take recorded_ (the slate matches) and _Take just recorded_ (true for a moment after any take lands, from any hand). Variables: `take_slate` and `take_time` (the last take's slate and "2026-11-01 14:35:07"), and `take_next_slate`, the slate the engine's own Take prompt would offer next (42A-3 counts to 42A-4; 1 after none). The presets under Takes (experimental) give Take, Take with the next slate, the last take, Restore last take and its region looks live.
+
 ### Actions
 
-Transport (Go, Pause, Pause / resume, Stop, Reset, Hold, Skip, Go next and previous, sections, TC lock and release), Fire cue, Locate, Chase mode; Blackout, Master level, Mode, Override; Audio master, mute, bus level and bus mute; a layer's owner, play mode, media, generator, effect, mapping, blend, key mode, transition, in and out points, position, any parameter, colour and sweeps; a region's look, colour and release; a pixel group's look and release; Recall; the set list; and a custom OSC message for anything else.
+Transport (Go, Pause, Pause / resume, Stop, Reset, Hold, Skip, Go next and previous, sections, TC lock and release), Fire cue, Locate, Chase mode; Blackout, Master level, Mode, Override; Audio master, mute, bus level and bus mute; a layer's owner, play mode, media, generator, effect, mapping, blend, key mode, transition, in and out points, position, any parameter, colour and sweeps; a region's look, colour and release; a pixel group's look and release; Recall; Take, Take: restore and Take: region looks live (experimental); the set list; and a custom OSC message for anything else.
 
 ### Feedbacks
 
-Transport state, Go is lit, Looping until Go (flashing), Go just fired, current cue, next cue, section, blackout, mode, override, timeline is the master, connected, current set list row, last recall; and at Full, a layer's owner, showing and play mode.
+Transport state, Go is lit, Looping until Go (flashing), Go just fired, current cue, next cue, section, blackout, mode, override, timeline is the master, connected, current set list row, last recall, last take recorded and take just recorded (experimental); and at Full, a layer's owner, showing and play mode.
 
 Value feedbacks for layered buttons: Raster picture, Next cue picture, Media tile picture and Recall picture give an image element its picture as a data URI; Cue label, Recall label and Raster label give a text element a name. The presets show how they go together.
 
@@ -47,4 +59,4 @@ Value feedbacks for layered buttons: Raster picture, Next cue picture, Media til
 
 From the control socket: `engine_name`, `engine_version`, `engine_driving`, `show_name`, `master_name`, `cue_name`, `next_cue_name`, `next_cue_picture`, `setlist_name`, `setlist_row_name`, `timeline_N_name`, `timeline_N_cue_name`, `timeline_N_next_cue_name`, `layer_N_name`, `raster_N_name`, `raster_N_picture` and `recall_B_T_name`. The picture variables hold a data URI for an image element.
 
-Everything the status gives: `timecode`, `position`, `frame`, `transport`, `cue`, `next_cue`, `section_number`, `section_name`, `section`, `heartbeat`, `recall_bank`, `recall_tile`, `recall_name`, `setlist_row`, `setlist_timeline`, `mode`, `blackout`, `master`, `override`; per timeline (when the show has more than one) `timeline_N_name`, `timeline_N_timecode`, `timeline_N_transport`, `timeline_N_cue`, `timeline_N_next_cue`, `timeline_N_master`; and at Full, per layer `layer_N_owner`, `layer_N_source`, `layer_N_showing`, `layer_N_play_mode`, `layer_N_opacity`, `layer_N_time`, `layer_N_colour_rgb`, `layer_N_colour_hsi` and `layer_N_colour_xy`. Timeline and layer variables appear as the status first mentions them.
+Everything the status gives: `timecode`, `position`, `frame`, `transport`, `cue`, `next_cue`, `section_number`, `section_name`, `section`, `heartbeat`, `recall_bank`, `recall_tile`, `recall_name`, `setlist_row`, `setlist_timeline`, `take_slate`, `take_time`, `take_next_slate` (experimental), `mode`, `blackout`, `master`, `override`; per timeline (when the show has more than one) `timeline_N_name`, `timeline_N_timecode`, `timeline_N_transport`, `timeline_N_cue`, `timeline_N_next_cue`, `timeline_N_master`; and at Full, per layer `layer_N_owner`, `layer_N_source`, `layer_N_showing`, `layer_N_play_mode`, `layer_N_opacity`, `layer_N_time`, `layer_N_colour_rgb`, `layer_N_colour_hsi` and `layer_N_colour_xy`. Timeline and layer variables appear as the status first mentions them.

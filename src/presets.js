@@ -601,6 +601,45 @@ function getPresets(label, model = null, state = null) {
 		definitions: ['setlist_previous', 'setlist_next', 'setlist_current'],
 	})
 
+	// Takes, for film work (experimental): Take with the engine naming it,
+	// Take with the next slate counted up, the last take, and the two ways
+	// of bringing the last take back. The Take keys go pale for a moment as
+	// the take lands, since nothing on screen changes when one is taken.
+	wordKey({
+		id: 'take',
+		name: 'Take (experimental)',
+		lines: ['TAKE', v('take_slate')],
+		actions: [act('take', { slate: '' })],
+		lit: [{ feedbackId: 'take_fired', options: {}, bgcolor: PALE, color: BLACK }],
+	})
+	wordKey({
+		id: 'take_next',
+		name: 'Take with the next slate (experimental)',
+		lines: ['TAKE', v('take_next_slate')],
+		actions: [act('take', { slate: v('take_next_slate') })],
+		lit: [{ feedbackId: 'take_fired', options: {}, bgcolor: PALE, color: BLACK }],
+	})
+	presets.take_last = button('Last take (experimental)', `${v('take_slate')}\\n${v('take_time')}`, [], [], {
+		bgcolor: BLACK,
+	})
+	presets.take_restore_last = button(
+		'Restore last take (experimental)',
+		`RESTORE\\n${v('take_slate')}`,
+		[act('take_restore', { slate: v('take_slate'), timeline: '', layer: '' })],
+		[],
+		{ color: AMBER },
+	)
+	presets.take_regions_last = button('Region looks from the last take (experimental)', `LOOKS\\n${v('take_slate')}`, [
+		act('take_regions', { slate: v('take_slate') }),
+	])
+	structure.push({
+		id: 'takes',
+		name: 'Takes (experimental)',
+		description:
+			'Record a take, and bring the last one back; needs Show, Takes on in the engine, and an engine from 2 November 2026',
+		definitions: ['take', 'take_next', 'take_last', 'take_restore_last', 'take_regions_last'],
+	})
+
 	// Go and Stop for every timeline the status or the show knows.
 	const known = new Set(state?.timelines ?? [])
 	for (const t of named?.timelines ?? []) known.add(t.number)

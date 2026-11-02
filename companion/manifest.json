@@ -4,7 +4,7 @@
 	"id": "enzyme-media-server",
 	"name": "enzyme-media-server",
 	"shortname": "enzyme",
-	"description": "Controls the Enzyme media server over OSC: transport, cues, layers, looks, recalls and the set list, with status back",
+	"description": "EXPERIMENTAL, for testing only: the released module plus Takes (record, restore, region looks live). Controls the Enzyme media server over OSC: transport, cues, layers, looks, recalls, takes and the set list, with status back",
 	"version": "0.0.0",
 	"license": "MIT",
 	"repository": "git+https://github.com/technickirl/companion-module-enzyme-media-server.git",
@@ -23,7 +23,7 @@
 	},
 	"legacyIds": [],
 	"manufacturer": "Enzyme",
-	"products": ["Enzyme media server"],
+	"products": ["Enzyme media server (experimental: takes)"],
 	"keywords": ["media server", "video", "playback", "timeline", "osc", "led"],
 	"bonjourQueries": {
 		"bonjour_host": {

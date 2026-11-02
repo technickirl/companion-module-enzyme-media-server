@@ -10,6 +10,15 @@ function getConfigFields() {
 	return [
 		{
 			type: 'static-text',
+			id: 'experimental',
+			width: 12,
+			label: 'Experimental build',
+			value:
+				'This build of the module is for testing only: it adds Takes (record a take, restore it, its region looks live, the last take as variables and feedbacks), ' +
+				'which need an engine from 2 November 2026 with Show, Takes on. Everything else is as the released module.',
+		},
+		{
+			type: 'static-text',
 			id: 'info',
 			width: 12,
 			label: 'Enzyme',

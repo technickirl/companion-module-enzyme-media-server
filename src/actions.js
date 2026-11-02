@@ -392,6 +392,78 @@ const ACTIONS = {
 		],
 		build: (o) => [{ address: '/recall', args: bankTile(o) }],
 	},
+	// Takes, for film work (experimental; engines from 2 November 2026).
+	take: {
+		name: 'Take (experimental)',
+		description:
+			'Records a take: every timeline in takes, whole, the region looks and a manual recall in the day’s Slates bank. Show, Takes must be on in the engine. Works in Live mode',
+		options: [
+			{
+				...field.text(
+					'slate',
+					'Slate',
+					'',
+					'The slate, as text (42A-3) or a number; empty, the engine names it Take N for the day',
+				),
+				useVariables: true,
+			},
+		],
+		build: (o) => {
+			const slate = String(o.slate ?? '').trim()
+			return [{ address: '/take', args: slate === '' ? [] : [str(slate)] }]
+		},
+	},
+	take_restore: {
+		name: 'Take: restore (experimental)',
+		description:
+			'Puts a take back: every timeline it holds, one timeline whole, or one layer’s track on it. An edit, refused by the engine in Live mode',
+		options: [
+			{ ...field.text('slate', 'Slate', '', 'The slate of the take to put back'), useVariables: true },
+			{
+				...field.timeline,
+				tooltip: 'Empty for every timeline the take holds, else one by its number or its name',
+			},
+			{
+				...field.layer,
+				default: '',
+				tooltip:
+					'Empty for the whole timeline, else one layer’s track on it, by its place from 1 at the back or its name',
+			},
+		],
+		build: (o, ctx) => {
+			const slate = String(o.slate ?? '').trim()
+			if (slate === '') {
+				ctx.log?.('warn', 'take restore: no slate given, nothing sent')
+				return []
+			}
+			const nameOrNumber = (text) => (/^\d+$/.test(text) ? int(text) : str(text))
+			const args = [str(slate)]
+			const timeline = String(o.timeline ?? '').trim()
+			const layer = String(o.layer ?? '').trim()
+			// The engine takes the layer after the timeline, so a layer's
+			// track needs its timeline named.
+			if (layer !== '' && timeline === '') {
+				ctx.log?.('warn', 'take restore: a layer needs its timeline named, nothing sent')
+				return []
+			}
+			if (timeline !== '') args.push(nameOrNumber(timeline))
+			if (layer !== '') args.push(nameOrNumber(layer))
+			return [{ address: '/take/restore', args }]
+		},
+	},
+	take_regions: {
+		name: 'Take: region looks live (experimental)',
+		description: 'Sets the region looks a take holds, live, as a desk would. Any mode',
+		options: [{ ...field.text('slate', 'Slate', '', 'The slate of the take whose looks to set'), useVariables: true }],
+		build: (o, ctx) => {
+			const slate = String(o.slate ?? '').trim()
+			if (slate === '') {
+				ctx.log?.('warn', 'take region looks: no slate given, nothing sent')
+				return []
+			}
+			return [{ address: '/take/regions', args: [str(slate)] }]
+		},
+	},
 	setlist_row_go: {
 		name: 'Set list: go on a row',
 		options: [

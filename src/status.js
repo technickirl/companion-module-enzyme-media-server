@@ -79,6 +79,14 @@ function parseStatus(message) {
 					['setlist_timeline', argText(a(1))],
 				]
 			}
+			// The take recorded last: its slate and the time it was taken
+			// ("2026-11-01 14:35:07"), from engines of 2 November 2026 on.
+			if (parts[1] === 'take' && parts[2] === 'last') {
+				return [
+					['take_slate', argText(a(0))],
+					['take_time', argText(a(1))],
+				]
+			}
 			return null
 		case 4:
 		case 5: {

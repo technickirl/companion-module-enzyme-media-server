@@ -17,6 +17,9 @@ const BASE_VARIABLES = {
 	recall_name: 'The name of the recall fired last',
 	setlist_row: 'The current set list row (0 for none)',
 	setlist_timeline: "The current set list row's timeline",
+	take_slate: 'The slate of the take recorded last (experimental; engines from 2 November 2026)',
+	take_time: 'When the last take was recorded, as "2026-11-01 14:35:07" (experimental)',
+	take_next_slate: 'The slate the engine would offer next: the last one counted up (experimental)',
 	mode: 'show or edit (Full)',
 	blackout: '1 while blacked out (Full)',
 	master: 'The master level, 0 to 1 (Full)',
@@ -136,6 +139,8 @@ function initialValues() {
 	for (const id of ['position', 'frame', 'section_number', 'heartbeat', 'recall_bank', 'recall_tile', 'setlist_row']) {
 		values[id] = 0
 	}
+	// The slate after none, as the engine's Take prompt offers it.
+	values.take_next_slate = '1'
 	return values
 }
 

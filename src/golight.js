@@ -25,6 +25,7 @@ export class GoLight {
 		this.flashTimer = null
 		this.goCounts = new Map()
 		this.firedTimers = new Map()
+		this.lastTake = undefined
 	}
 
 	/** The variable names a timeline's values go by: bare for the master (0), numbered otherwise. */
@@ -45,6 +46,14 @@ export class GoLight {
 	 */
 	update(state, changed) {
 		for (const name of changed) {
+			// A take landing (its time moves) fires under the key 'take', as
+			// a Go does under its timeline's: not on the first value heard.
+			if (name === 'take_time') {
+				const before = this.lastTake
+				this.lastTake = state.get(name)
+				if (before !== undefined && this.lastTake !== before) this.fire('take')
+				continue
+			}
 			const n = GoLight.timelineOf(name)
 			if (n === null) continue
 			const value = state.get(name)
@@ -109,10 +118,11 @@ export class GoLight {
 		this.firedTimers.clear()
 	}
 
-	/** Forgets the counts too, as when the engine changes. */
+	/** Forgets the counts and the last take too, as when the engine changes. */
 	reset() {
 		this.stop()
 		this.looping.clear()
 		this.goCounts.clear()
+		this.lastTake = undefined
 	}
 }

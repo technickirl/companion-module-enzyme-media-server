@@ -1,5 +1,7 @@
 # Enzyme Companion module
 
+> **Experimental branch (`takes`), for testing only.** This branch is the released module plus Takes: record a take, restore it whole or in part, set its region looks live, with the last take as variables and feedbacks. It needs an Enzyme engine from 2 November 2026 or later with Show, Takes on. Build it with `yarn package:experimental`, which marks the package as a pre-release; its version is 0.3.0-takes.N. The released module is on `main`.
+
 A [Bitfocus Companion](https://bitfocus.io/companion) module for Enzyme, a media server for live shows. Commands go over OSC and Enzyme's OSC status stream lights the buttons and fills their text. A second, read-only connection to Enzyme's control socket adds names (cues, timelines, layers, rasters, regions, media tiles, recalls, the set list) and pictures (rasters, the next cue, media tiles, recalls) for buttons.
 
 Needs Companion 5.1 or later (module API 2.2).
@@ -18,25 +20,25 @@ The Go preset shows the timeline's name, a triangle, the current section and the
 
 ## Actions
 
-Transport (Go, Pause, Pause / resume, Stop, Reset, Hold, Skip forward and back, Go next and previous, Section next and previous, TC lock and release), Fire cue, Locate, Chase mode; Blackout, Master level, Mode, Override; Audio master level, Audio mute, Audio bus level, Audio bus mute; Layer owner, play mode, media, generator, effect, mapping, blend mode, key mode, transition time and type, in point, out point, position, set a value (any parameter with a fade time), colour (RGB, HSI or xy) and sweep a value; Region set a value, colour and release; Pixel group set a value and release; Recall; Set list go on a row, skip a row, next and previous; Send custom OSC.
+Transport (Go, Pause, Pause / resume, Stop, Reset, Hold, Skip forward and back, Go next and previous, Section next and previous, TC lock and release), Fire cue, Locate, Chase mode; Blackout, Master level, Mode, Override; Audio master level, Audio mute, Audio bus level, Audio bus mute; Layer owner, play mode, media, generator, effect, mapping, blend mode, key mode, transition time and type, in point, out point, position, set a value (any parameter with a fade time), colour (RGB, HSI or xy) and sweep a value; Region set a value, colour and release; Pixel group set a value and release; Recall; Take, Take: restore and Take: region looks live (experimental); Set list go on a row, skip a row, next and previous; Send custom OSC.
 
 Every transport and cue action takes a timeline: empty for the master, else its number or its name. Layers, rasters, regions and pixel groups take a number or a name too. With the control socket on, these fields, the cue, the media and generator tiles, the recalls and the set list rows become dropdowns of the show's names that still take typed text.
 
 ## Feedbacks
 
-Transport state, Go is lit, Looping until Go (flashing), Go just fired, Current cue, Next cue, Section number, Blackout on, Mode, Override, Timeline is the master, Connected to the engine, Current set list row, Last recall fired; and at Full, Layer owner, Layer showing a picture, Layer play mode.
+Transport state, Go is lit, Looping until Go (flashing), Go just fired, Current cue, Next cue, Section number, Blackout on, Mode, Override, Timeline is the master, Connected to the engine, Current set list row, Last recall fired, Last take recorded and Take just recorded (experimental); and at Full, Layer owner, Layer showing a picture, Layer play mode.
 
 Value feedbacks, for layered buttons and their image elements: Raster picture, Next cue picture, Media tile picture and Recall picture (each a `data:image/jpeg;base64` string), and Cue label, Recall label and Raster label for a button's text.
 
 ## Variables
 
-`timecode`, `position`, `frame`, `transport`, `cue`, `next_cue`, `section_number`, `section_name`, `section`, `heartbeat`, `recall_bank`, `recall_tile`, `recall_name`, `setlist_row`, `setlist_timeline`, `mode`, `blackout`, `master`, `override`; per timeline (sent when the show has more than one) `timeline_N_name`, `timeline_N_timecode`, `timeline_N_transport`, `timeline_N_cue`, `timeline_N_next_cue`, `timeline_N_master`; and at Full, per layer `layer_N_owner`, `layer_N_source`, `layer_N_showing`, `layer_N_play_mode`, `layer_N_opacity`, `layer_N_time`, `layer_N_colour_rgb`, `layer_N_colour_hsi`, `layer_N_colour_xy`. Timeline and layer variables are made as the status first mentions them.
+`timecode`, `position`, `frame`, `transport`, `cue`, `next_cue`, `section_number`, `section_name`, `section`, `heartbeat`, `recall_bank`, `recall_tile`, `recall_name`, `setlist_row`, `setlist_timeline`, `take_slate`, `take_time`, `take_next_slate` (experimental), `mode`, `blackout`, `master`, `override`; per timeline (sent when the show has more than one) `timeline_N_name`, `timeline_N_timecode`, `timeline_N_transport`, `timeline_N_cue`, `timeline_N_next_cue`, `timeline_N_master`; and at Full, per layer `layer_N_owner`, `layer_N_source`, `layer_N_showing`, `layer_N_play_mode`, `layer_N_opacity`, `layer_N_time`, `layer_N_colour_rgb`, `layer_N_colour_hsi`, `layer_N_colour_xy`. Timeline and layer variables are made as the status first mentions them.
 
 From the control socket: `engine_name`, `engine_version`, `engine_driving`, `show_name`, `master_name`, `cue_name`, `next_cue_name`, `next_cue_picture`, `setlist_name`, `setlist_row_name`; `timeline_N_name`, `timeline_N_cue_name` and `timeline_N_next_cue_name` for every timeline; `layer_N_name`; `raster_N_name` and `raster_N_picture`; and `recall_B_T_name` for every stored recall. The picture variables hold a data URI for an image element on a layered button.
 
 ## Presets
 
-Transport (Go and Stop as layered buttons with the timeline's name shrunk to fit, a triangle or a square and, on Go, the next cue, lit as the shell's), Cues (fire, current and next cue, timecode, section), Show (blackout, mode, override, master, connected), Recalls (bank 1, tiles 1 to 8), Set list, and Go and Stop for every timeline the engine reports.
+Transport (Go and Stop as layered buttons with the timeline's name shrunk to fit, a triangle or a square and, on Go, the next cue, lit as the shell's), Cues (fire, current and next cue, timecode, section), Show (blackout, mode, override, master, connected), Recalls (bank 1, tiles 1 to 8), Set list, Takes (experimental: Take, Take with the next slate, the last take, Restore last take, its region looks live), and Go and Stop for every timeline the engine reports.
 
 With a show from the control socket: the master's next cues from the current one, each with its number and name and firing that cue; Go with a picture of the next cue; every stored recall by bank, with its name and picture; and a monitor button per raster. These are layered buttons with an image element, with a text-only version for a host that cannot draw layers.
 
@@ -52,7 +54,7 @@ yarn fake-engine
 
 `yarn test` runs the unit tests: the OSC encoding of every action, the status parser against packets captured from the fake engine (and live), the feedbacks and presets, the link's ping, timeout, resubscribe and backup logic, and the control socket's line splitting, handshake (with and without a key, and refused), StatusFast skipping, names, dropdown choices, cue name lookup, the driving-engine rule and the picture data URIs.
 
-`yarn fake-engine` starts a fake Enzyme on UDP 9000 that answers pings, takes subscriptions, sends Light or Full status and prints every command it hears, and serves the control socket on TCP 9200 with a fixture show: two timelines with named cues, four layers, two rasters with named regions, media tiles, recalls (one with a picture) and a set list, with status thirty times a second and pictures at the asked rate. Options: `--port`, `--socket-port`, `--no-socket`, `--key secret` (the socket then asks for the control key), `--timelines`, `--layers`, `--following` (a backup that answers nothing, and whose socket says it follows), `--waiting` and `--looping` (the master starts in those states; `/fake/waiting 0|1` and `/fake/looping 0|1` flip them, the fake's own messages and not Enzyme's), `--old-engine` (no waiting, looping or Go count, as an engine before 1 November 2026), `--quiet`. Point a connection at 127.0.0.1 to see the buttons work without an engine. `node test/capture-fixture.js` refreshes the captured packets under `test/fixtures`.
+`yarn fake-engine` starts a fake Enzyme on UDP 9000 that answers pings, takes subscriptions, sends Light or Full status and prints every command it hears, and serves the control socket on TCP 9200 with a fixture show: two timelines with named cues, four layers, two rasters with named regions, media tiles, recalls (one with a picture) and a set list, with status thirty times a second and pictures at the asked rate. Options: `--port`, `--socket-port`, `--no-socket`, `--key secret` (the socket then asks for the control key), `--timelines`, `--layers`, `--following` (a backup that answers nothing, and whose socket says it follows), `--waiting` and `--looping` (the master starts in those states; `/fake/waiting 0|1` and `/fake/looping 0|1` flip them, the fake's own messages and not Enzyme's), `--old-engine` (no waiting, looping, Go count or last take, as an engine before 1 November 2026), `--quiet`. It records takes too: `/take` names one and `/status/take/last` reports it; a restore is noted and changes nothing. Point a connection at 127.0.0.1 to see the buttons work without an engine. `node test/capture-fixture.js` refreshes the captured packets under `test/fixtures`.
 
 To run the module in Companion while developing, after `yarn install`:
 
@@ -64,6 +66,6 @@ Companion restarts the connection whenever a file in the module changes. Its log
 
 The other way to try a build, and the way to hand one to someone else: `yarn package` writes a `.tgz`, which Companion's Modules page takes with Import module package.
 
-`yarn lint` and `yarn format` check and tidy the code; `yarn check` validates the manifest; `yarn package` builds the module for distribution.
+`yarn lint` and `yarn format` check and tidy the code; `yarn check` validates the manifest; `yarn package` builds the module for distribution, and `yarn package:experimental` builds it marked as a pre-release, for this branch.
 
 See [HELP.md](./companion/HELP.md) and [LICENSE](./LICENSE).

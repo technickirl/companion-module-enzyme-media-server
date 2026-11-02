@@ -20,6 +20,7 @@ import { getActionDefinitions } from './actions.js'
 import { getFeedbackDefinitions, feedbacksFor, bankTileOf } from './feedbacks.js'
 import { variableDefinitions, nameValues, initialValues } from './variables.js'
 import { getPresets } from './presets.js'
+import { nextSlate } from './takes.js'
 
 /** How long status changes are gathered before they go to Companion. */
 const FLUSH_MS = 40
@@ -52,9 +53,11 @@ export default class EnzymeInstance extends InstanceBase {
 		this.presetTimer = null
 		this.lastPresetCue = null
 		this.lastPresetTimelines = ''
-		// The looping flash and the moment after a Go, as the shell lights its Go.
+		// The looping flash and the moment after a Go, as the shell lights its
+		// Go; and the moment after a take lands (experimental).
 		this.light = new GoLight({
-			onChange: (what) => this.checkFeedbacks(what === 'flash' ? 'looping_until_go' : 'go_fired'),
+			onChange: (what) =>
+				what === 'flash' ? this.checkFeedbacks('looping_until_go') : this.checkFeedbacks('go_fired', 'take_fired'),
 		})
 	}
 
@@ -355,6 +358,8 @@ export default class EnzymeInstance extends InstanceBase {
 				Object.assign(values, nameValues(this.model.hasShow ? this.model : null, this.state, this.engine))
 			else values[name] = this.state.get(name)
 		}
+		// The slate the engine would offer next follows the last take's (experimental).
+		if (changed.includes('take_slate')) values.take_next_slate = nextSlate(this.state.get('take_slate'))
 		if (changed.includes('cue') && this.state.get('cue') !== this.lastPresetCue) this.schedulePresetRefresh()
 		this.light.update(this.state, changed)
 		const feedbacks = new Set(feedbacksFor(changed))

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0-takes.1 (2 November 2026, experimental)
+
+A pre-release on the `takes` branch, for testing only, marked as such in Companion. Everything in 0.2.5, plus Takes, which need an engine from 2 November 2026 or later with Show, Takes on:
+
+- Three actions: Take (with a slate, or the engine's Take N for the day), Take: restore (every timeline the take holds, one timeline, or one layer's track on it) and Take: region looks live.
+- Two feedbacks: Last take recorded, and Take just recorded, a moment's pale green as a take lands, since nothing on screen changes when one is taken.
+- Variables `take_slate`, `take_time` and `take_next_slate` (the slate the engine's own prompt would offer next) from the new `/status/take/last`.
+- Presets under Takes (experimental): Take, Take with the next slate, Last take, Restore last take and Region looks from the last take.
+- The fake engine records takes and reports the last one; `--old-engine` leaves it out.
+
 ## 0.2.5 (1 November 2026)
 
 - A show's lone timeline flashes its own Go while its clips loop until Go, and shows the moment after a Go, as the master's key does: the flash and the Go count are the master's lines, and its key now reads their timers too (it lit plain green and never flashed in 0.2.4).

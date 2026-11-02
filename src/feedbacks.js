@@ -7,6 +7,7 @@
 import { combineRgb } from '@companion-module/base'
 import * as C from './choices.js'
 import { withChoices } from './actions.js'
+import { sameSlate } from './takes.js'
 
 const GREEN = { bgcolor: combineRgb(0, 140, 0), color: combineRgb(255, 255, 255) }
 const RED = { bgcolor: combineRgb(180, 0, 0), color: combineRgb(255, 255, 255) }
@@ -234,6 +235,23 @@ const FEEDBACKS = {
 		],
 		keys: ['recall_bank', 'recall_tile'],
 		check: (o, state) => state.get('recall_bank') === Number(o.bank) && state.get('recall_tile') === Number(o.tile),
+	},
+	take_was: {
+		name: 'Last take recorded (experimental)',
+		description: 'The take recorded last has this slate. Needs an engine from 2 November 2026',
+		style: GREEN,
+		options: [{ id: 'slate', type: 'textinput', label: 'Slate', default: '', useVariables: true }],
+		keys: ['take_slate'],
+		check: (o, state) => sameSlate(state.get('take_slate'), o.slate),
+	},
+	take_fired: {
+		name: 'Take just recorded (experimental)',
+		description:
+			'True for a moment after the engine records a take from any hand, as the only sign on a key that a take landed. Needs an engine from 2 November 2026',
+		style: PALE_GREEN,
+		options: [],
+		keys: ['take_time'],
+		check: (o, state, connection, light) => light?.fired('take') === true,
 	},
 	layer_owner_is: {
 		name: 'Layer owner',

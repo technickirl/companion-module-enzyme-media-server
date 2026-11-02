@@ -94,6 +94,10 @@ class FakeEngine extends EventEmitter {
 			override: 'off',
 			recall: null,
 			setlist: [0, ''],
+			// The take recorded last, [slate, "YYYY-MM-DD HH:MM:SS"], and how many today (experimental).
+			take: null,
+			takesToday: 0,
+			restored: [],
 			// What lights a Go button beyond the word, per timeline from 1 (the master).
 			waiting: Array.from({ length: timelines }, (_, i) => (i === 0 && waiting ? 1 : 0)),
 			looping: Array.from({ length: timelines }, (_, i) => (i === 0 && looping ? 1 : 0)),
@@ -320,6 +324,21 @@ class FakeEngine extends EventEmitter {
 			const tile = parts.length === 3 ? Number(parts[2]) : argNumber(a[1])
 			if (parts.length === 3 && a.length > 0 && argNumber(a[0]) < 0.5) changed = false
 			else s.recall = [bank, tile, `Recall ${bank}/${tile}`]
+		} else if (parts[0] === 'take') {
+			// Takes (experimental): a take is named by its slate, or Take N for
+			// the day; a restore or region looks live is noted and changes nothing.
+			if (parts.length === 1) {
+				const given = argText(a[0]).trim()
+				s.takesToday++
+				const slate = given === '' ? `Take ${s.takesToday}` : given
+				const now = new Date()
+				const two = (n) => String(n).padStart(2, '0')
+				const stamp = `${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())} ${two(now.getHours())}:${two(now.getMinutes())}:${two(now.getSeconds())}`
+				s.take = [slate, stamp]
+			} else if ((parts[1] === 'restore' || parts[1] === 'regions') && argText(a[0]).trim() !== '') {
+				s.restored.push([parts[1], ...a.map((arg) => argText(arg))])
+				changed = false
+			} else changed = false
 		} else if (parts[0] === 'setlist') {
 			if (parts[1] === 'row' && parts[3] === 'go') s.setlist = [Number(parts[2]), 'Main']
 			else if (parts[1] === 'next') s.setlist = [s.setlist[0] + 1, 'Main']
@@ -390,6 +409,10 @@ class FakeEngine extends EventEmitter {
 		out.push({ address: '/status/setlist/current', args: [int(s.setlist[0]), str(s.setlist[1])] })
 		if (s.recall) {
 			out.push({ address: '/status/recall', args: [int(s.recall[0]), int(s.recall[1]), str(s.recall[2])] })
+		}
+		// The last take, once one has been (experimental; engines from 2 November 2026).
+		if (s.take && !this.oldEngine) {
+			out.push({ address: '/status/take/last', args: [str(s.take[0]), str(s.take[1])] })
 		}
 		if (level !== 'full') return out
 		out.push(
